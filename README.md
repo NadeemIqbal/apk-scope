@@ -27,7 +27,7 @@ APK Scope is a local-first Android security workbench for understanding what an 
 | WebSocket/WSS, gRPC, SSE, QUIC/HTTP/3 | Component or research status; not advertised as release support |
 | Frida/APK patching | Development POC; not the default workflow |
 
-The screenshots and recording in this README show a real static inspection of the separately built **Risk Signal Fixture** selected through Android's document picker. They do not claim that the short recording exercised a live Work Profile request.
+The screenshots and original 24-second walkthrough show a real static inspection of the separately built **Risk Signal Fixture** selected through Android's document picker. The live recordings below are separate emulator runs and include their verification boundaries.
 
 ## Visual tour
 
@@ -46,6 +46,16 @@ The screenshots and recording in this README show a real static inspection of th
 </p>
 
 The visual set is intentionally honest: static findings and saved evidence are shown directly, while runtime states are labeled as pending or not run when no Work Profile session supplied them.
+
+## Live verification recordings
+
+These recordings were captured on `emulator-5554` (Android 17 / API 37) with a disposable Managed Work Profile.
+
+- [CA/VPN flow](docs/media/demo/apk-scope-ca-vpn-flow.mp4) — starts a Work Profile sandbox, runs the HTTPS/WSS fixture, and shows Live Monitor DNS/domain and connection evidence.
+- [Frida/APK patching flow](docs/media/demo/apk-scope-frida-dynamic-flow-clean.mp4) — development-only repack/instrumentation flow: APK selection, patch/sign/analysis, Work Profile install, Frida receiver startup, and a pinned HTTPS attempt.
+- [HTTPS + WSS protocol companion](docs/media/demo/apk-scope-frida-protocol-companion.mp4) — the in-sandbox fixture visibly logs successful HTTPS JSON/POST calls and WSS HTTP 101/frames before returning to APK Scope's inspector.
+
+The CA/VPN recording proves routed Work Profile traffic and DNS/domain attribution; it does **not** prove plaintext HTTPS decryption on this emulator run because the Work Profile CA was not installed. The Frida path is a development POC, not a release workflow. The pinned fixture's hard-coded `httpbin.org` SPKI pin is stale against the certificate served during capture, so the recording does not claim a successful Frida payload/chunk capture. WSS remains research-status and is shown only through the compatible fixture/protocol companion.
 
 ## Core workflow
 

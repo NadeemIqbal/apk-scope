@@ -1,7 +1,7 @@
 # APK Scope — Demo Media Manifest
 
 This directory contains the current visual proof for the APK Scope README. Media was captured on
-2026-09-18 from the rebuilt app running on the `emulator-5554` Google emulator (`sdk_gphone16k_arm64`,
+2026-09-18 from the installed APK running on the `emulator-5554` Google emulator (`sdk_gphone16k_arm64`,
 Android 17 / API 37). The working tree was dirty because the repository was being relocated to a
 root-level Gradle project; the capture records UI state only and is not a release certification.
 
@@ -15,8 +15,8 @@ root-level Gradle project; the capture records UI state only and is not a releas
   and no personal notifications) to keep the frame reproducible.
 - No screenshot was synthesized and no database row was manually inserted for these captures. Existing
   device reports may remain visible in the Reports history.
-- The walkthrough is a static-focused media sample, not proof of a live Work Profile network request.
-  It combines an authentic dashboard → analysis clip with an authentic Reports → Evidence report clip.
+- The original walkthrough is a static-focused media sample. The live recordings below are separate
+  Work Profile verification runs and are annotated with their limitations.
 
 ## Main walkthrough
 
@@ -28,6 +28,17 @@ root-level Gradle project; the capture records UI state only and is not a releas
 The two source captures were recorded with Android `screenrecord`; the final MP4 was concatenated and
 re-encoded with `ffmpeg` using fast-start metadata. The GIF is a small preview and should not be treated
 as a separate evidence run.
+
+## Live verification recordings
+
+| File | Duration | Format | Contents and boundary |
+| --- | ---: | --- | --- |
+| `demo/apk-scope-ca-vpn-flow.mp4` | 180.2s | 720×1600 H.264, no audio | Disposable Work Profile setup, HTTPS/WSS fixture activity, and Live Monitor VPN DNS/domain/connection evidence. CA was not installed, so plaintext HTTPS decryption is not demonstrated. |
+| `demo/apk-scope-frida-dynamic-flow-clean.mp4` | 175.1s | 720×1600 H.264, no audio | Development-only Frida/APK patching flow through Work Profile launch and receiver startup. The pinned `httpbin.org` request fails because the fixture's embedded SPKI pin is stale; no successful Frida payload capture is claimed. |
+| `demo/apk-scope-frida-protocol-companion.mp4` | 34.5s | 720×1600 H.264, no audio | In-sandbox fixture log showing successful HTTPS JSON/POST calls and WSS HTTP 101/text/binary frames, followed by APK Scope traffic observations. This is protocol evidence, not proof of Frida interception. |
+
+The CA and protocol recordings are real emulator captures, not synthesized UI. WSS is retained as research-status
+evidence; it is not advertised as a release-supported decrypted protocol.
 
 ## Screenshots
 

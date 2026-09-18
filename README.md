@@ -49,13 +49,12 @@ The visual set is intentionally honest: static findings and saved evidence are s
 
 ## Live verification recordings
 
-These recordings were captured on `emulator-5554` (Android 17 / API 37) with a disposable Managed Work Profile.
+These recordings were captured on `emulator-5554` (Android 17 / API 37). The CA clip uses a disposable Managed Work Profile; the Frida clip uses an installed patched fixture in Personal and APK Scope's standalone receiver.
 
-- [CA/VPN flow](docs/media/demo/apk-scope-ca-vpn-flow.mp4) — starts a Work Profile sandbox, runs the HTTPS/WSS fixture, and shows Live Monitor DNS/domain and connection evidence.
-- [Frida/APK patching flow](docs/media/demo/apk-scope-frida-dynamic-flow-clean.mp4) — development-only repack/instrumentation flow: APK selection, patch/sign/analysis, Work Profile install, Frida receiver startup, and a pinned HTTPS attempt.
-- [HTTPS + WSS protocol companion](docs/media/demo/apk-scope-frida-protocol-companion.mp4) — the in-sandbox fixture visibly logs successful HTTPS JSON/POST calls and WSS HTTP 101/frames before returning to APK Scope's inspector.
+- [CA/VPN network inspector](docs/media/demo/apk-scope-ca-network-inspector.mp4) — APK Scope's Traffic Inspector shows the CA-captured WSS `echo.websocket.org` handshake/messages and decoded HTTPS `jsonplaceholder.typicode.com` transaction.
+- [Frida network inspector](docs/media/demo/apk-scope-frida-network-inspector.mp4) — an installed patched fixture streams real TLS bytes into APK Scope's standalone inspector; the recording filters the captured WSS handshake and decoded HTTPS transaction inside APK Scope, not the fixture's own log view.
 
-The CA/VPN recording proves routed Work Profile traffic and DNS/domain attribution; it does **not** prove plaintext HTTPS decryption on this emulator run because the Work Profile CA was not installed. The Frida path is a development POC, not a release workflow. The pinned fixture's hard-coded `httpbin.org` SPKI pin is stale against the certificate served during capture, so the recording does not claim a successful Frida payload/chunk capture. WSS remains research-status and is shown only through the compatible fixture/protocol companion.
+The CA/VPN recording proves routed Work Profile traffic and DNS/domain attribution; it does **not** prove plaintext HTTPS decryption on that Work Profile run because the Work Profile CA was not installed. The Frida path is a development POC, not a release workflow: the patched fixture's TLS stream is received by APK Scope's standalone inspector, while the older pinned `httpbin.org` path remains a separate stale-pin limitation. WSS remains research-status and is shown only as captured inspector evidence, not a release-supported decrypted protocol.
 
 ## Core workflow
 

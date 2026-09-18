@@ -309,6 +309,8 @@ class FridaTrafficMonitor {
             } else {
                 "https://$host$rawPath"
             }
+            val isWebSocketUpgrade = headers["upgrade"]?.equals("websocket", ignoreCase = true) == true ||
+                headers["connection"]?.contains("upgrade", ignoreCase = true) == true
             val encoding = headers["content-encoding"] ?: headers["Content-Encoding"]
             val contentType = headers["content-type"] ?: headers["Content-Type"]
 
@@ -336,7 +338,7 @@ class FridaTrafficMonitor {
                 sessionId = sessionId,
                 targetPackage = targetPackage ?: traffic.pkg,
                 timestamp = Instant.ofEpochMilli(tx.startTime),
-                protocol = TrafficProtocol.HTTPS,
+                protocol = if (isWebSocketUpgrade) TrafficProtocol.WSS else TrafficProtocol.HTTPS,
                 host = tx.host,
                 port = tx.port,
                 url = tx.url,

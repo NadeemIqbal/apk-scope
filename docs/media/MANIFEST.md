@@ -33,12 +33,16 @@ as a separate evidence run.
 
 | File | Duration | Format | Contents and boundary |
 | --- | ---: | --- | --- |
+| `demo/apk-scope-ca-network-inspector.mp4` | 29.1s | 720×1600 H.264, no audio | APK Scope Traffic Inspector showing a CA-captured WSS `101 Switching Protocols` transaction and decoded HTTPS `200` transaction. |
+| `demo/apk-scope-frida-network-inspector.mp4` | 11.7s | 720×1600 H.264, no audio | APK Scope Traffic Inspector showing WSS and HTTPS transactions streamed from the installed patched fixture through the standalone Frida receiver. |
 | `demo/apk-scope-ca-vpn-flow.mp4` | 180.2s | 720×1600 H.264, no audio | Disposable Work Profile setup, HTTPS/WSS fixture activity, and Live Monitor VPN DNS/domain/connection evidence. CA was not installed, so plaintext HTTPS decryption is not demonstrated. |
 | `demo/apk-scope-frida-dynamic-flow-clean.mp4` | 175.1s | 720×1600 H.264, no audio | Development-only Frida/APK patching flow through Work Profile launch and receiver startup. The pinned `httpbin.org` request fails because the fixture's embedded SPKI pin is stale; no successful Frida payload capture is claimed. |
 | `demo/apk-scope-frida-protocol-companion.mp4` | 34.5s | 720×1600 H.264, no audio | In-sandbox fixture log showing successful HTTPS JSON/POST calls and WSS HTTP 101/text/binary frames, followed by APK Scope traffic observations. This is protocol evidence, not proof of Frida interception. |
 
 The CA and protocol recordings are real emulator captures, not synthesized UI. WSS is retained as research-status
 evidence; it is not advertised as a release-supported decrypted protocol.
+
+The older long-form captures remain in this directory for provenance but are superseded by the short inspector recordings above and are not linked from the README.
 
 ## Screenshots
 

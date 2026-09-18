@@ -72,6 +72,7 @@ import com.nadeem.apkscope.core.network.traffic.TrafficProtocol
 import com.nadeem.apkscope.core.network.traffic.TrafficRecord
 import com.nadeem.apkscope.core.network.traffic.WebSocketMessage
 import com.nadeem.apkscope.core.network.traffic.WebSocketSessionData
+import com.nadeem.apkscope.poc.apkrepack.FridaTrafficMonitor
 import com.nadeem.apkscope.domain.monitor.LiveMonitorAggregator
 import com.nadeem.apkscope.sandbox.CaInstaller
 import com.nadeem.apkscope.ui.components.AppTopBar
@@ -128,6 +129,12 @@ fun TrafficInspectorScreen(
 
     LaunchedEffect(Unit) {
         refreshCaStatus()
+        // The personal-side inspector is also a valid Frida receiver surface. Starting the
+        // receiver here lets a locally installed instrumented APK stream its real TLS bytes into
+        // the same inspector even when no Work Profile session is active.
+        if (workSessionId == null) {
+            FridaTrafficMonitor.shared.start()
+        }
     }
 
     // Detail view routing

@@ -2,19 +2,40 @@
 
 APK Scope is a local-first Android security workbench for understanding what an APK declares and what it does when it runs. It combines static inspection with an optional Managed Work Profile session, network observation, evidence provenance, and deterministic reports—without root.
 
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <a href="docs/media/demo/apk-scope-ca-full-flow.mp4" title="Play the full CA / VPN flow (2:56)">
+        <img src="docs/media/demo/apk-scope-ca-full-flow-preview.gif" alt="APK Scope CA/VPN full flow: selection, static analysis, Work Profile, VPN capture, decrypted HTTPS/WSS in the Traffic Inspector" width="280">
+      </a>
+      <br>
+      🎬 <strong><a href="docs/media/demo/apk-scope-ca-full-flow.mp4">CA / VPN full flow</a></strong> · 2:56<br>
+      <sub>static analysis → Work Profile → VPN capture → decrypted HTTPS/WSS</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="docs/media/demo/apk-scope-frida-full-flow.mp4" title="Play the full Frida flow (2:25)">
+        <img src="docs/media/demo/apk-scope-frida-full-flow-preview.gif" alt="APK Scope Frida full flow: gadget patch pipeline, sandbox launch, SSL capture, decoded HTTPS in the Traffic Inspector" width="280">
+      </a>
+      <br>
+      🎬 <strong><a href="docs/media/demo/apk-scope-frida-full-flow.mp4">Frida full flow</a></strong> · 2:25<br>
+      <sub>gadget patch → sandbox launch → SSL capture (no CA) → decoded HTTPS</sub>
+    </td>
+  </tr>
+</table>
+
 <p align="center">
-  <a href="docs/media/demo/apk-scope-ca-full-flow.mp4">
-    <img src="docs/media/demo/apk-scope-ca-full-flow-poster.png" alt="APK Scope CA/VPN full flow: selection, static analysis, Work Profile, VPN capture, decrypted HTTPS/WSS in the Traffic Inspector" width="300">
-  </a>
-  &nbsp;&nbsp;
-  <a href="docs/media/demo/apk-scope-frida-full-flow.mp4">
-    <img src="docs/media/demo/apk-scope-frida-full-flow-poster.png" alt="APK Scope Frida full flow: gadget patch pipeline, sandbox launch, SSL capture, decoded HTTPS in the Traffic Inspector" width="300">
-  </a>
-  <br>
-  <em>Two full end-to-end flows, real captures on <code>emulator-5554</code> (Android 17 / API 37):</em>
-  <br>
-  🎬 <strong><a href="docs/media/demo/apk-scope-ca-full-flow.mp4">CA / VPN full flow</a></strong> (2:56) &nbsp;·&nbsp; 🎬 <strong><a href="docs/media/demo/apk-scope-frida-full-flow.mp4">Frida full flow</a></strong> (2:25)
+  <sub>The previews loop automatically; click either one to open the full video with a player. Both are real captures on <code>emulator-5554</code> (Android 17 / API 37). You can also stream them or download the installable APK from the <a href="https://github.com/NadeemIqbal/apk-scope/releases/latest">latest release</a>.</sub>
 </p>
+
+## 📥 Install
+
+Grab the latest build from **[Releases](https://github.com/NadeemIqbal/apk-scope/releases/latest)** and sideload it:
+
+```bash
+adb install APK-Scope-v0.1.0-debug-signed.apk
+```
+
+Or copy the APK to an Android 11+ (API 30+) device and open it with a file manager. The published build is debug-signed for open sideloading; build a signed release yourself with `./gradlew :app:assembleRelease` if you prefer your own key.
 
 > [!IMPORTANT]
 > APK Scope is an explainability and evidence tool, not an antivirus, malware verdict, virtual machine, or guarantee of containment. A risk score is not malware probability. The Work Profile shares the Android kernel, and dynamic observation is limited by Android, device, app, and protocol behavior.
@@ -91,7 +112,7 @@ The visual set is intentionally honest: static findings and saved evidence are s
 
 ## Full-flow recordings
 
-Both recordings were captured on `emulator-5554` (Android 17 / API 37), each as one continuous run from APK selection to a decoded transaction in the Traffic Inspector. Dead time between automated steps was trimmed; nothing was staged or synthesized, and no database row was inserted by hand.
+Both recordings were captured on `emulator-5554` (Android 17 / API 37), each as one continuous run from APK selection to a decoded transaction in the Traffic Inspector. Dead time between automated steps was trimmed; nothing was staged or synthesized, and no database row was inserted by hand. The looping previews at the top play the whole flow at speed; click either to open the full MP4 in GitHub's player, or stream both from the [latest release](https://github.com/NadeemIqbal/apk-scope/releases/latest).
 
 ### 🎬 CA / VPN full flow — [`apk-scope-ca-full-flow.mp4`](docs/media/demo/apk-scope-ca-full-flow.mp4) (2:56)
 

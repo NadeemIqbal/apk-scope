@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.4.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.4.0)" variant="all" version="9.4.0">
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1=" defaultConfig { applicationId = &quot;com.apksandbox.fixture&quot;; minSdk = 30; targetSdk = 36; versionCode = 1; versionName = &quot;test-only&quot; }"
+        errorLine2="                                                                        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="5"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="SdCardPath"
+        message="Do not hardcode &quot;`/data/`&quot;; use `Context.getFilesDir().getPath()` instead"
+        errorLine1="            val result = runCatching { java.io.File(&quot;/data/user/${android.os.Process.myUid() / 100000}/com.nadeem.apkscope/files/gate.jsonl&quot;).readText() }"
+        errorLine2="                                                     ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="277"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NetworkSecurityConfig"
+        message="Invalid digest algorithm. Supported digests: `SHA-256`"
+        errorLine1="            &lt;pin digest=&quot;sha256&quot;>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=&lt;/pin>"
+        errorLine2="                         ~~~~~~">
+        <location
+            file="src/main/res/xml/network_security_config_domain_pins.xml"
+            line="15"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NetworkSecurityConfig"
+        message="Invalid digest algorithm. Supported digests: `SHA-256`"
+        errorLine1="            &lt;pin digest=&quot;sha256&quot;>BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=&lt;/pin>"
+        errorLine2="                         ~~~~~~">
+        <location
+            file="src/main/res/xml/network_security_config_domain_pins.xml"
+            line="16"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
+        errorLine1=" implementation(&quot;com.squareup.okhttp3:okhttp:4.12.0&quot;)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="10"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GetInstance"
+        message="`Cipher.getInstance` should not be called without setting the encryption mode and padding"
+        errorLine1=" fun weakCipherReference(): Cipher = Cipher.getInstance(&quot;DES&quot;)"
+        errorLine2="                                                        ~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/CodePatternFixtures.kt"
+            line="20"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="JavascriptInterface"
+        message="None of the methods in the added interface (Object) have been annotated with `@android.webkit.JavascriptInterface`; they will not be visible in API 17"
+        errorLine1="  webView.addJavascriptInterface(Any(), &quot;fixtureBridge&quot;)"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/CodePatternFixtures.kt"
+            line="34"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="SetJavaScriptEnabled"
+        message="Using `setJavaScriptEnabled` can introduce XSS vulnerabilities into your application, review carefully"
+        errorLine1="  webView.settings.javaScriptEnabled = true // setJavaScriptEnabled under the hood"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/CodePatternFixtures.kt"
+            line="33"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers"
+        errorLine1="                    override fun checkClientTrusted(chain: Array&lt;out java.security.cert.X509Certificate>?, authType: String?) {}"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="465"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers"
+        errorLine1="   override fun checkClientTrusted(chain: Array&lt;out X509Certificate>?, authType: String?) { /* intentionally accepts everything — fixture only, never invoked */ }"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/NetworkTrustFixtures.kt"
+            line="52"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers"
+        errorLine1="   override fun checkServerTrusted(chain: Array&lt;out X509Certificate>?, authType: String?) { /* intentionally accepts everything — fixture only, never invoked */ }"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/NetworkTrustFixtures.kt"
+            line="53"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="CustomX509TrustManager"
+        message="Implementing a custom `X509TrustManager` is error-prone and likely to be insecure. It is likely to disable certificate validation altogether, and is non-trivial to implement correctly without calling Android&apos;s default implementation."
+        errorLine1="                val strictTrustManager = object : javax.net.ssl.X509TrustManager {"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="464"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="CustomX509TrustManager"
+        message="Implementing a custom `X509TrustManager` is error-prone and likely to be insecure. It is likely to disable certificate validation altogether, and is non-trivial to implement correctly without calling Android&apos;s default implementation."
+        errorLine1="  val trustAll = object : X509TrustManager {"
+        errorLine2="                 ~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/NetworkTrustFixtures.kt"
+            line="51"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1=" &lt;receiver android:name=&quot;.StressReceiver&quot; android:exported=&quot;true&quot;>&lt;intent-filter>&lt;action android:name=&quot;com.apksandbox.fixture.RUN_STRESS_SUITE&quot;/>&lt;/intent-filter>&lt;/receiver>"
+        errorLine2="  ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="11"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="InsecureBaseConfiguration"
+        message="Insecure Base Configuration"
+        errorLine1="    &lt;base-config cleartextTrafficPermitted=&quot;true&quot;>"
+        errorLine2="                                            ~~~~">
+        <location
+            file="src/main/res/xml/network_security_config.xml"
+            line="3"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="WebViewClientOnReceivedSslError"
+        message="Permitting connections with SSL-related errors could allow eavesdroppers to intercept data sent by your app, which impacts the privacy of your users. Consider canceling the connections by invoking `SslErrorHandler#cancel()`."
+        errorLine1="  handler?.proceed() // intentionally unsafe — fixture only, never invoked or attached to a real WebView"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/CodePatternFixtures.kt"
+            line="46"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="DataExtractionRules"
+        message="The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+        errorLine1=" &lt;application android:label=&quot;Harmless Sandbox Fixture&quot; android:allowBackup=&quot;false&quot; android:networkSecurityConfig=&quot;@xml/network_security_config&quot; android:theme=&quot;@android:style/Theme.Material.Light.NoActionBar&quot;>"
+        errorLine2="                                                                            ~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="6"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.xml.network_security_config_domain_pins` appears to be unused"
+        errorLine1="&lt;network-security-config>"
+        errorLine2="^">
+        <location
+            file="src/main/res/xml/network_security_config_domain_pins.xml"
+            line="11"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="MissingApplicationIcon"
+        message="Should explicitly set `android:icon`, there is no default"
+        errorLine1=" &lt;application android:label=&quot;Harmless Sandbox Fixture&quot; android:allowBackup=&quot;false&quot; android:networkSecurityConfig=&quot;@xml/network_security_config&quot; android:theme=&quot;@android:style/Theme.Material.Light.NoActionBar&quot;>"
+        errorLine2="  ~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="6"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope Fixture&quot;"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="122"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;Live Traffic Inspection &amp; Work Profile Test Suite&quot;"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="130"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;LOG OUTPUT&quot;"
+        errorLine2="                    ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="155"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;Clear&quot;"
+        errorLine2="                    ~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="164"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="            text = &quot;Ready. Tap any action below to trigger live network traffic.\n&quot;"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="174"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;Ready. Tap any action below to trigger live network traffic.\n&quot;"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/apksandbox/fixture/FixtureActivity.kt"
+            line="174"
+            column="21"/>
+    </issue>
+
+</issues>

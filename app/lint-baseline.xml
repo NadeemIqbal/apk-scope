@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.4.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.4.0)" variant="all" version="9.4.0">
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by CrossProfileApps.startActivity: android.permission.INTERACT_ACROSS_PROFILES or android.permission.INTERACT_ACROSS_USERS"
+        errorLine1="     crossProfile.startActivity("
+        errorLine2="     ^">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxProfileSwitcher.kt"
+            line="31"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="12"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.android.tools.build:apksig than 8.2.0 is available: 9.4.0"
+        errorLine1="    implementation(&quot;com.android.tools.build:apksig:8.2.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="48"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.11.0 is available: 1.13.0"
+        errorLine1="    implementation(&quot;androidx.activity:activity-compose:1.11.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="62"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.4 is available: 2.11.0"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="63"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.4 is available: 2.11.0"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-runtime-compose:2.9.4&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="64"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.9.6 is available: 2.10.1"
+        errorLine1="    implementation(&quot;androidx.navigation:navigation-compose:2.9.6&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="65"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="    androidTestImplementation(&quot;androidx.test.ext:junit:1.2.1&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="80"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="    androidTestImplementation(&quot;androidx.test:runner:1.6.2&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="81"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0"
+        errorLine1="    androidTestImplementation(&quot;androidx.test.uiautomator:uiautomator:2.3.0&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="97"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.bouncycastle:bcprov-jdk18on than 1.80 is available: 1.86"
+        errorLine1="    implementation(&quot;org.bouncycastle:bcprov-jdk18on:1.80&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="49"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.bouncycastle:bcpkix-jdk18on than 1.80 is available: 1.86"
+        errorLine1="    implementation(&quot;org.bouncycastle:bcpkix-jdk18on:1.80&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="50"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.github.reandroid:ARSCLib than 1.3.5 is available: 1.4.0"
+        errorLine1="    implementation(&quot;io.github.reandroid:ARSCLib:1.3.5&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="51"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.2 is available: 1.11.0"
+        errorLine1="    implementation(&quot;org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="66"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.json:json than 20240303 is available: 20260814"
+        errorLine1="    testImplementation(&quot;org.json:json:20240303&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="75"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.10.2 is available: 1.11.0"
+        errorLine1="    androidTestImplementation(&quot;org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="82"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier,"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/AppIdentityHeader.kt"
+            line="31"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier,"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/Badges.kt"
+            line="135"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/detail/ComponentsDetailScreen.kt"
+            line="342"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier,"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/reports/ReportsScreen.kt"
+            line="73"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier,"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/sandbox/SandboxCleanupScreen.kt"
+            line="59"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/settings/SettingsScreen.kt"
+            line="62"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier,"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/staticresult/StaticResultScreen.kt"
+            line="104"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/traffic/TrafficInspectorScreen.kt"
+            line="92"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" fun WorkEntryScreen(openTrafficInspector: Boolean = false, modifier: Modifier = Modifier) {"
+        errorLine2="                                                            ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/workmonitor/WorkEntryScreen.kt"
+            line="83"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/workmonitor/WorkEntryScreen.kt"
+            line="154"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1=" modifier: Modifier = Modifier"
+        errorLine2=" ~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/workmonitor/WorkLiveMonitorScreen.kt"
+            line="83"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.80/5277dfaaef2e92ce1d802499599a0ca7488f86e6/bcpkix-jdk18on-1.80.jar"/>
+    </issue>
+
+    <issue
+        id="UnsafeNativeCodeLocation"
+        message="Shared libraries should not be placed in the res or assets directories. Please use the features of your development environment to place shared libraries in the lib directory of the compiled APK.">
+        <location
+            file="src/main/assets/frida-gadget-arm.so"/>
+    </issue>
+
+    <issue
+        id="UnsafeNativeCodeLocation"
+        message="Shared libraries should not be placed in the res or assets directories. Please use the features of your development environment to place shared libraries in the lib directory of the compiled APK.">
+        <location
+            file="src/main/assets/frida-gadget-arm64.so"/>
+    </issue>
+
+    <issue
+        id="UnsafeNativeCodeLocation"
+        message="Shared libraries should not be placed in the res or assets directories. Please use the features of your development environment to place shared libraries in the lib directory of the compiled APK.">
+        <location
+            file="src/main/assets/frida-gadget-x86.so"/>
+    </issue>
+
+    <issue
+        id="UnsafeNativeCodeLocation"
+        message="Shared libraries should not be placed in the res or assets directories. Please use the features of your development environment to place shared libraries in the lib directory of the compiled APK.">
+        <location
+            file="src/main/assets/frida-gadget-x86_64.so"/>
+    </issue>
+
+    <issue
+        id="DataExtractionRules"
+        message="The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+        errorLine1=" &lt;application android:label=&quot;APK Scope&quot; android:icon=&quot;@mipmap/ic_launcher&quot; android:roundIcon=&quot;@mipmap/ic_launcher_round&quot; android:allowBackup=&quot;false&quot; android:theme=&quot;@android:style/Theme.Material.Light.NoActionBar&quot;>"
+        errorLine2="                                                                                                                                              ~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="11"
+            column="143"/>
+    </issue>
+
+    <issue
+        id="QueryAllPackagesPermission"
+        message="A `&lt;queries>` declaration should generally be used instead of QUERY_ALL_PACKAGES; see https://g.co/dev/packagevisibility for details"
+        errorLine1=" &lt;uses-permission android:name=&quot;android.permission.QUERY_ALL_PACKAGES&quot;/>"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="4"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 30"
+        errorLine1="   Build.VERSION.SDK_INT >= 24 &amp;&amp; userManager?.hasUserRestriction(&quot;no_install_unknown_sources_globally&quot;) == true"
+        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/PackageInstallerDiagnostics.kt"
+            line="38"
+            column="4"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 30"
+        errorLine1="     @Suppress(&quot;DEPRECATION&quot;) val versionCode = if (android.os.Build.VERSION.SDK_INT >= 28) installedInfo.longVersionCode else installedInfo.versionCode.toLong()"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxInstallResultReceiver.kt"
+            line="148"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 30. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-hdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-mdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xxhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xxxhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                            data = Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/AlreadyInstalledInPersonalDialog.kt"
+            line="100"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                            data = Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/AlreadyInstalledInPersonalDialog.kt"
+            line="100"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                                data = Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/AlreadyInstalledInPersonalDialog.kt"
+            line="106"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                                data = Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/components/AlreadyInstalledInPersonalDialog.kt"
+            line="106"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="   val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).setData(android.net.Uri.parse(&quot;package:$packageName&quot;)).putExtra(Intent.EXTRA_RETURN_RESULT, true)"
+        errorLine2="                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxInstallResultReceiver.kt"
+            line="72"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="   prefs.edit().remove(&quot;pending_$installSessionId&quot;).apply()"
+        errorLine2="   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxInstallResultReceiver.kt"
+            line="110"
+            column="4"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="     check(prefs.edit().putBoolean(&quot;pending_$installSessionId&quot;, true).commit())"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxInstallResultReceiver.kt"
+            line="127"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="   data = Uri.parse(&quot;package:$pkg&quot;)"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxWorkQueryActivity.kt"
+            line="201"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="   data = Uri.parse(&quot;package:$pkg&quot;)"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxWorkQueryActivity.kt"
+            line="201"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="  val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse(&quot;package:$packageName&quot;))"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxWorkQueryActivity.kt"
+            line="266"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="   getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()"
+        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxWorkerService.kt"
+            line="144"
+            column="4"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="  getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/sandbox/SandboxWorkerService.kt"
+            line="250"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="   a.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse(&quot;package:${a.packageName}&quot;)))"
+        errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/SpikeControls.kt"
+            line="64"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="  context.getSharedPreferences(TUTORIAL_PREFERENCES, android.content.Context.MODE_PRIVATE)"
+        errorLine2="  ^">
+        <location
+            file="src/main/java/com/nadeem/apkscope/ui/screens/tutorial/TutorialScreen.kt"
+            line="57"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                   ~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="52"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                                                            ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="120"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                                                                                                                       ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="152"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                                                                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="175"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;APK Scope — provisioning gate\nAPI ${android.os.Build.VERSION.SDK_INT}\nManaged users: $supported\nProvisioning allowed: $allowed\nProfile Owner: $owner\nCurrent managed profile: ${users.isManagedProfile}\n\nDo not continue if an existing Work Profile is present. Private Space must remain untouched.&quot;"
+        errorLine2="                                                                                                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="88"
+            column="229"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;Start Android Work Profile setup&quot;"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/nadeem/apkscope/spike/GateActivity.kt"
+            line="91"
+            column="21"/>
+    </issue>
+
+</issues>

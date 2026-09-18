@@ -3,15 +3,63 @@
 APK Scope is a local-first Android security workbench for understanding what an APK declares and what it does when it runs. It combines static inspection with an optional Managed Work Profile session, network observation, evidence provenance, and deterministic reports—without root.
 
 <p align="center">
-  <a href="docs/media/demo/apk-scope-walkthrough.mp4">
-    <img src="docs/media/demo/apk-scope-preview.gif" alt="APK Scope walkthrough: dashboard, static analysis, findings, and evidence report" width="360">
+  <a href="docs/media/demo/apk-scope-ca-full-flow.mp4">
+    <img src="docs/media/demo/apk-scope-ca-full-flow-poster.png" alt="APK Scope CA/VPN full flow: selection, static analysis, Work Profile, VPN capture, decrypted HTTPS/WSS in the Traffic Inspector" width="300">
+  </a>
+  &nbsp;&nbsp;
+  <a href="docs/media/demo/apk-scope-frida-full-flow.mp4">
+    <img src="docs/media/demo/apk-scope-frida-full-flow-poster.png" alt="APK Scope Frida full flow: gadget patch pipeline, sandbox launch, SSL capture, decoded HTTPS in the Traffic Inspector" width="300">
   </a>
   <br>
-  <em>Watch the <a href="docs/media/demo/apk-scope-walkthrough.mp4">24-second walkthrough</a>.</em>
+  <em>Two full end-to-end flows, real captures on <code>emulator-5554</code> (Android 17 / API 37):</em>
+  <br>
+  🎬 <strong><a href="docs/media/demo/apk-scope-ca-full-flow.mp4">CA / VPN full flow</a></strong> (2:56) &nbsp;·&nbsp; 🎬 <strong><a href="docs/media/demo/apk-scope-frida-full-flow.mp4">Frida full flow</a></strong> (2:25)
 </p>
 
 > [!IMPORTANT]
 > APK Scope is an explainability and evidence tool, not an antivirus, malware verdict, virtual machine, or guarantee of containment. A risk score is not malware probability. The Work Profile shares the Android kernel, and dynamic observation is limited by Android, device, app, and protocol behavior.
+
+## Features
+
+APK Scope walks a single APK from selection to signed, explainable evidence. Each capability below appears in the screenshots and the two full-flow recordings above.
+
+### 🔍 Deterministic static analysis
+Read package identity, manifest, signing, components, SDK config, native libraries, hashes, and bounded DEX signals — then score them with versioned, explainable rules (`static-v1`). Every finding keeps its source and precision (declaration vs. DEX presence vs. code reference).
+
+<p align="center">
+  <img src="docs/media/screenshots/02-static-analysis.png" alt="Static analysis detail: identity, deterministic risk score, signature validation, key findings" width="240">
+  <img src="docs/media/screenshots/05-deep-analysis.png" alt="Deeper static analysis: declared capabilities, DEX coverage, security API references, embedded URLs" width="240">
+  <img src="docs/media/screenshots/06-analysis-coverage.png" alt="DEX analysis coverage and inspection counts" width="240">
+</p>
+
+### 🛡️ Evidence-backed security audit
+A separate rule catalog (`security-audit-v1`) grades each check as **Finding detected**, **Needs review**, or **Passed** with severity, confidence, and remediation — so an exported-component surface or an accessibility+overlay combination is explained, not just flagged.
+
+<p align="center">
+  <img src="docs/media/screenshots/04-security-audit.png" alt="Security audit with findings, review items, and passed checks" width="240">
+</p>
+
+### 🧪 Managed Work Profile sandbox + VPN capture
+Prepare a disposable Managed Work Profile, install the target through Android's own confirmation flow, and route it through a monitoring VPN with DNS attribution, IPv6 lockdown, and read-back verification of every applied restriction. Live Monitor shows connections, DNS/domain evidence, and byte counts as the target runs.
+
+<p align="center">
+  <img src="docs/media/screenshots/03-sandbox-config.png" alt="Sandbox configuration: CA Mode and Frida Mode, network isolation, disposable session" width="240">
+  <img src="docs/media/screenshots/01-dashboard.png" alt="APK Scope home with recent session and system readiness checks" width="240">
+</p>
+
+### 🌐 Traffic Inspector with two inspection modes
+Inspect readable HTTP/1.1 and negotiated HTTP/2 transactions, and choose how to see encrypted traffic:
+
+- **CA Mode** — install the disposable Work Profile CA to decrypt HTTPS (and WSS) for apps that trust it. The CA flow above shows a decoded WebSocket `101` handshake with bidirectional frames and full HTTPS request/response bodies.
+- **Frida Mode** — patch the APK with a Frida gadget that hooks `SSL_read`/`SSL_write` and streams the plaintext into APK Scope's inspector **without installing any CA**. The Frida flow above shows decoded HTTPS transactions captured straight from the instrumented app.
+
+### 🧾 Signed, provenance-preserving reports
+Every report keeps declared capabilities, observed behavior, and Android OS evidence distinct, with per-source completeness (`Complete` / `Not run` / `Not collected`) and a combined score. Runtime states are labeled honestly when no session supplied them, and reports persist locally across restarts.
+
+<p align="center">
+  <img src="docs/media/screenshots/08-evidence-report.png" alt="Evidence report with risk score, completeness, and finding provenance" width="240">
+  <img src="docs/media/screenshots/07-reports.png" alt="Reports history with static and runtime status shown independently" width="240">
+</p>
 
 ## What is verified today
 
@@ -24,37 +72,40 @@ APK Scope is a local-first Android security workbench for understanding what an 
 | VPN observation, destination policy, Android OS evidence | Product verified on the documented device scope |
 | HTTP/1.1 and negotiated HTTP/2 inspection | Product verified for the documented compatible fixture path |
 | Reports, evidence completeness, persistence after restart | Product verified for the documented device scope |
+| CA-based HTTPS/WSS decryption in the Traffic Inspector | Demonstrated end-to-end on the documented emulator for a compatible fixture; subject to app trust and pinning |
 | WebSocket/WSS, gRPC, SSE, QUIC/HTTP/3 | Component or research status; not advertised as release support |
-| Frida/APK patching | Development POC; not the default workflow |
+| Frida/APK patching and gadget SSL capture | Development POC; full patch → run → capture flow demonstrated on the documented emulator, not the default workflow |
 
-The screenshots and original 24-second walkthrough show a real static inspection of the separately built **Risk Signal Fixture** selected through Android's document picker. The live recordings below are separate emulator runs and include their verification boundaries.
+The screenshots show real static inspection of separately built fixtures selected through Android's document picker. The two full-flow recordings at the top are real emulator runs (`emulator-5554`, Android 17 / API 37); their verification boundaries are described below.
 
 ## Visual tour
 
+The [Features](#features) section above shows the main screens in context. The remaining views — onboarding and the settings/protocol disclosures — round out the workspace:
+
 <p align="center">
-  <img src="docs/media/screenshots/01-dashboard.png" alt="APK Scope Home dashboard" width="260">
-  <img src="docs/media/screenshots/02-static-analysis.png" alt="APK Scope static analysis detail" width="260">
-  <img src="docs/media/screenshots/04-security-audit.png" alt="APK Scope security audit" width="260">
-  <br>
-  <img src="docs/media/screenshots/05-deep-analysis.png" alt="APK Scope deeper static analysis" width="260">
-  <img src="docs/media/screenshots/06-analysis-coverage.png" alt="APK Scope analysis coverage" width="260">
-  <img src="docs/media/screenshots/07-reports.png" alt="APK Scope inspection history" width="260">
-  <br>
-  <img src="docs/media/screenshots/08-evidence-report.png" alt="APK Scope evidence report" width="260">
-  <img src="docs/media/screenshots/03-sandbox-config.png" alt="APK Scope sandbox configuration" width="260">
-  <img src="docs/media/screenshots/09-more.png" alt="APK Scope settings and protocol disclosure" width="260">
+  <img src="docs/media/screenshots/10-getting-started.png" alt="APK Scope in-app getting-started guide" width="260">
+  <img src="docs/media/screenshots/09-more.png" alt="APK Scope settings, local retention, and protocol disclosure" width="260">
 </p>
 
 The visual set is intentionally honest: static findings and saved evidence are shown directly, while runtime states are labeled as pending or not run when no Work Profile session supplied them.
 
-## Live verification recordings
+## Full-flow recordings
 
-These recordings were captured on `emulator-5554` (Android 17 / API 37). The CA clip uses a disposable Managed Work Profile; the Frida clip uses an installed patched fixture in Personal and APK Scope's standalone receiver.
+Both recordings were captured on `emulator-5554` (Android 17 / API 37), each as one continuous run from APK selection to a decoded transaction in the Traffic Inspector. Dead time between automated steps was trimmed; nothing was staged or synthesized, and no database row was inserted by hand.
 
-- [CA/VPN network inspector](docs/media/demo/apk-scope-ca-network-inspector.mp4) — APK Scope's Traffic Inspector shows the CA-captured WSS `echo.websocket.org` handshake/messages and decoded HTTPS `jsonplaceholder.typicode.com` transaction.
-- [Frida network inspector](docs/media/demo/apk-scope-frida-network-inspector.mp4) — an installed patched fixture streams real TLS bytes into APK Scope's standalone inspector; the recording filters the captured WSS handshake and decoded HTTPS transaction inside APK Scope, not the fixture's own log view.
+### 🎬 CA / VPN full flow — [`apk-scope-ca-full-flow.mp4`](docs/media/demo/apk-scope-ca-full-flow.mp4) (2:56)
 
-The CA/VPN recording proves routed Work Profile traffic and DNS/domain attribution; it does **not** prove plaintext HTTPS decryption on that Work Profile run because the Work Profile CA was not installed. The Frida path is a development POC, not a release workflow: the patched fixture's TLS stream is received by APK Scope's standalone inspector, while the older pinned `httpbin.org` path remains a separate stale-pin limitation. WSS remains research-status and is shown only as captured inspector evidence, not a release-supported decrypted protocol.
+Choose APK → **CA Mode** → static analysis of the Harmless Sandbox Fixture → provision a disposable Managed Work Profile → prepare the sandbox and confirm the Android install → **Live Monitor** VPN evidence (connections, DNS/domain attribution, byte counts) → **Traffic Inspector**: install the Work Profile CA, enable HTTPS/WSS decryption, run the fixture, and read back a decoded WebSocket `101` handshake (bidirectional text/binary frames) and full HTTPS `200` request/response bodies.
+
+This run **does** demonstrate plaintext HTTPS/WSS decryption, because the Work Profile CA was installed on camera. Decryption only works for apps that trust the test CA; certificate pinning, custom trust code, and unsupported protocols can still prevent readable payloads.
+
+### 🎬 Frida full flow — [`apk-scope-frida-full-flow.mp4`](docs/media/demo/apk-scope-frida-full-flow.mp4) (2:25)
+
+Choose APK → **Frida Mode** → the integrated patch pipeline injects a Frida gadget and re-signs the APK (note the changed signer) → static analysis of the patched APK → sandbox prepare/install → launch the patched app → its gadget hooks `SSL_read`/`SSL_write` and streams plaintext chunks into APK Scope's receiver (the receiver shows *Connected package* and a rising chunk count) → **Traffic Inspector** shows decoded HTTPS `200` transactions with readable headers and bodies.
+
+The Frida path is a development POC, not the default workflow: it captures SSL bytes **without installing any CA**. Response bodies that arrive gzip-encoded appear as raw compressed bytes in the preview (the gadget captures the wire stream), while headers and uncompressed bodies decode cleanly.
+
+The shorter clips from earlier verification runs remain in [`docs/media/demo/`](docs/media/demo/) for provenance and are catalogued in [the media manifest](docs/media/MANIFEST.md).
 
 ## Core workflow
 

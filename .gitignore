@@ -5,6 +5,10 @@
 
 # Files for the ART/Dalvik VM
 *.dex
+# ...except the Frida gadget loader, which is a checked-in asset (peer of the
+# frida-gadget-*.so binaries) compiled from FridaLoaderFactory.java. Regenerate
+# it with tools/build-frida-loader.sh.
+!app/src/main/assets/frida_loader.dex
 
 # Java class files
 *.class

@@ -5,26 +5,22 @@ APK Scope is a local-first Android security workbench for understanding what an 
 <table align="center">
   <tr>
     <td align="center" width="50%">
-      <a href="docs/media/demo/apk-scope-ca-full-flow.mp4" title="Play the full CA / VPN flow (2:56)">
-        <img src="docs/media/demo/apk-scope-ca-full-flow-preview.gif" alt="APK Scope CA/VPN full flow: selection, static analysis, Work Profile, VPN capture, decrypted HTTPS/WSS in the Traffic Inspector" width="280">
-      </a>
+      <video src="https://github.com/user-attachments/assets/fc6780d0-efad-4e66-8ec7-88c7631283b2" controls muted playsinline width="340"></video>
       <br>
-      🎬 <strong><a href="docs/media/demo/apk-scope-ca-full-flow.mp4">CA / VPN full flow</a></strong> · 2:56<br>
+      🎬 <strong>CA / VPN full flow</strong> · 2:56<br>
       <sub>static analysis → Work Profile → VPN capture → decrypted HTTPS/WSS</sub>
     </td>
     <td align="center" width="50%">
-      <a href="docs/media/demo/apk-scope-frida-full-flow.mp4" title="Play the full Frida flow (2:25)">
-        <img src="docs/media/demo/apk-scope-frida-full-flow-preview.gif" alt="APK Scope Frida full flow: gadget patch pipeline, sandbox launch, SSL capture, decoded HTTPS in the Traffic Inspector" width="280">
-      </a>
+      <video src="https://github.com/user-attachments/assets/0bb2540a-8ff2-4bac-96c5-ca755522b183" controls muted playsinline width="340"></video>
       <br>
-      🎬 <strong><a href="docs/media/demo/apk-scope-frida-full-flow.mp4">Frida full flow</a></strong> · 2:25<br>
+      🎬 <strong>Frida full flow</strong> · 2:25<br>
       <sub>gadget patch → sandbox launch → SSL capture (no CA) → decoded HTTPS</sub>
     </td>
   </tr>
 </table>
 
 <p align="center">
-  <sub>The previews loop automatically; click either one to open the full video with a player. Both are real captures on <code>emulator-5554</code> (Android 17 / API 37). You can also stream them or download the installable APK from the <a href="https://github.com/NadeemIqbal/apk-scope/releases/latest">latest release</a>.</sub>
+  <sub>Press play on either clip above. Both are real captures on <code>emulator-5554</code> (Android 17 / API 37). Prefer a file? The MP4s live in <a href="docs/media/demo/">docs/media/demo/</a> and on the <a href="https://github.com/NadeemIqbal/apk-scope/releases/latest">latest release</a>, alongside the installable APK.</sub>
 </p>
 
 ## 📥 Install

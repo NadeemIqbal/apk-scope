@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.4.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.4.0)" variant="all" version="9.4.0">
+
+    <issue
+        id="QueryPermissionsNeeded"
+        message="Consider adding a `&lt;queries>` declaration to your manifest when calling this method; see https://g.co/dev/packagevisibility for details"
+        errorLine1="  val matches = context.packageManager.queryIntentActivities(probe, PackageManager.MATCH_DEFAULT_ONLY)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/nadeem/apkscope/core/crossprofile/Handoff.kt"
+            line="131"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="QueryPermissionsNeeded"
+        message="Consider adding a `&lt;queries>` declaration to your manifest when calling this method; see https://g.co/dev/packagevisibility for details"
+        errorLine1="  val matches=context.packageManager.queryIntentActivities(intent,PackageManager.MATCH_DEFAULT_ONLY)"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/nadeem/apkscope/core/crossprofile/Handoff.kt"
+            line="190"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="   getSharedPreferences(&quot;spike&quot;,0).edit().putString(&quot;session&quot;,session).putString(&quot;import&quot;,local.absolutePath).apply()"
+        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/nadeem/apkscope/core/crossprofile/Handoff.kt"
+            line="270"
+            column="4"/>
+    </issue>
+
+</issues>

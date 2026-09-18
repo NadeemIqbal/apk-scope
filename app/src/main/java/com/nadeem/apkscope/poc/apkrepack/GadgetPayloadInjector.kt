@@ -98,26 +98,17 @@ class GadgetPayloadInjector(private val context: Context) {
         payload["assets/poc_instrumentation.marker"] = marker
         Log.i(TAG, "✓ Added marker asset: ${marker.size} bytes")
 
-        // 4. Network Security Configuration (Fallback trust for inspection CA)
-        // This helps if Frida fails to load or bypass pinning.
-        val netSecConfig = """
-            <?xml version="1.0" encoding="utf-8"?>
-            <network-security-config>
-                <base-config cleartextTrafficPermitted="true">
-                    <trust-anchors>
-                        <certificates src="system" />
-                        <certificates src="user" />
-                    </trust-anchors>
-                </base-config>
-                <debug-overrides>
-                    <trust-anchors>
-                        <certificates src="user" />
-                    </trust-anchors>
-                </debug-overrides>
-            </network-security-config>
-        """.trimIndent().toByteArray()
-        payload["res/xml/network_security_config.xml"] = netSecConfig
-        Log.i(TAG, "✓ Added Network Security Config fallback")
+        // 4. Network Security Configuration — intentionally NOT injected.
+        // res/xml/network_security_config.xml is a COMPILED binary AXML resource that
+        // resources.arsc points at. Writing plain-text XML into that slot produces a
+        // "Corrupt XML binary file" and crashes the target at Application init before any
+        // hook runs. This overwrite also never delivered its intended "fallback CA trust":
+        // ReVancedApkRepacker only edits AppComponentFactory/extractNativeLibs in the
+        // manifest, so android:networkSecurityConfig is never added — an app without an
+        // existing nsc reference would ignore the dropped file anyway, and an app WITH one
+        // had its real config corrupted. The Frida gadget hooks SSL_read/SSL_write directly
+        // and does not depend on nsc CA trust, so the target's original (valid, compiled)
+        // network security config is preserved untouched.
 
         Log.i(TAG, "Payload complete: ${payload.size} files, ${payload.values.sumOf { it.size }} total bytes")
         return payload

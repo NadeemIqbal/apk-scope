@@ -27,6 +27,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # gradle.properties pins org.gradle.java.home to a local macOS path to work
+      # around a developer machine's global ~/.gradle config. That path does not
+      # exist on the Linux runner, so drop the pin here and let this job's JDK 17
+      # (JAVA_HOME, set by setup-java) drive Gradle instead.
+      - name: Use the runner's JDK for Gradle
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+
+      # core:staticanalysis unit tests run against real compiled fixture APKs
+      # (fixture/obfuscatedfixture/riskfixture). Those APKs are gitignored build
+      # outputs, so build them before `test` or the tests fail with
+      # "…-debug.apk not found".
+      - name: Build fixture APKs for static-analysis tests
+        run: ./gradlew :fixture:assembleDebug :obfuscatedfixture:assembleDebug :riskfixture:assembleDebug
+
       - name: Run JVM Unit Tests
         run: ./gradlew test
 

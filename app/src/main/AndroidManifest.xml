@@ -8,7 +8,7 @@
  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <queries><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
- <application android:label="APK Scope" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:testOnly="true">
+ <application android:label="APK Scope" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
   <!-- Production entry point (item 4/23). MainActivity, not GateActivity, is the launcher — the
        dark Compose UI is the normal user-facing product. GateActivity and the rest of the
        spike/debug surface below remain fully present for regression testing (still directly

@@ -35,9 +35,8 @@ A guided session step is verified only when:
 1. The step's instruction text accurately describes an action available in the actual target app under
    test (not a generic instruction that may not apply).
 2. The resulting `ObservedBehavior` / `AndroidEvidence` is attributed to the correct session and target
-   package (reusing Milestone 9's ownership-verification work — see `.planning/STATE.md`'s "Milestone 9
-   — ownership verification" section; this milestone does not re-solve that problem, it depends on it
-   already being solved).
+   package (reusing Milestone 9's ownership-verification work; this milestone does not re-solve that
+   problem, it depends on it already being solved).
 3. A step that produces no observation within its window is reported as **"not exercised,"** never
    silently treated as a pass or a fail. This mirrors `docs/SUPERVISOR_CONTEXT.md` item 18 (declaration
    versus observation) applied to a guided step specifically: the user being *told* to do something is
@@ -83,11 +82,12 @@ requirements:
 ## Evidence locations
 
 - Unit test results: `core/risk/build/test-results/test/` (regenerated on every
-  `./gradlew :core:risk:test` run — not committed; cite the run's aggregate pass/fail count in
-  `.planning/STATE.md` and phase `SUMMARY.md`/`VERIFICATION-REPORT.md` files, as prior milestones did).
-- Phase-level planning and verification artifacts: `.planning/phases/10.{N}-{slug}/`.
-- Full-milestone reconciliation, when Milestone 10 closes: `.planning/STATE.md`, following the same
-  "Final Milestone N requirement reconciliation" pattern Milestone 9 used.
+  `./gradlew :core:risk:test` run — not committed; cite the run's aggregate pass/fail count in CI or
+  release notes).
+- Phase-level planning and verification artifacts are maintained privately and are intentionally not
+  shipped in the public repository.
+- Full-milestone reconciliation, when Milestone 10 closes, belongs in the maintainer's private
+  verification record; this public document states the reproducible evidence requirements only.
 
 ## What this document does not cover
 

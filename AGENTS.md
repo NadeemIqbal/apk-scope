@@ -12,7 +12,8 @@ These documents represent the durable architectural and product decisions for th
 
 They take precedence over assumptions made during an individual implementation session.
 
-The `.planning` directory represents the current GSD execution state.
+The `.planning` directory, when present locally, represents the current GSD execution state. It is
+intentionally ignored and is not part of the public repository.
 
 When GSD planning conflicts with an architectural constraint documented above, do not silently override the constraint. Identify the conflict and resolve the planning state.
 

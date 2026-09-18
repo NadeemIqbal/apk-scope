@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
  * shape (one parent row, N child finding rows, cascade delete) since a Security Audit is exactly the
  * same relationship: one analysis (referenced by [analysisId], `AnalysisSessionEntity.sessionId`) has
  * zero-or-one current audit, which has N findings. Deliberately a **separate** table from
- * `final_reports` — [MS10-FOUND04 in `.planning/REQUIREMENTS.md`] requires Security Audit findings to
+ * `final_reports` — the public Security Audit requirements require findings to
  * never automatically alter the existing risk score/final report; a shared table would make that
  * separation easy to violate by accident.
  *

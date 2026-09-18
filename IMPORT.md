@@ -6,7 +6,8 @@ This is a handoff pack, not a repository audit or a verified GSD state export. T
 
 ## Import into the initialized repository
 
-1. Extract this pack outside the repository first. Include the .planning directory when viewing the archive.
+1. Extract this pack outside the repository first. Include any privately supplied `.planning` directory
+   when viewing the archive; it is intentionally not committed to the public repository.
 2. Read the repository instructions, existing GSD configuration, planning files, and current Git status.
 3. Inspect the checkout and reconcile every reported implementation claim with code and test artifacts.
 4. Merge the candidate PROJECT.md, REQUIREMENTS.md, ROADMAP.md, and STATE.md content into the existing GSD equivalents. Preserve existing frontmatter, milestone identifiers, phase numbering, history, and unrelated work. Do not replace existing files wholesale.
@@ -30,10 +31,10 @@ Proposed: future work, without implementation authorization.
 
 ## Files
 
-.planning/PROJECT.md: purpose, value, scope, constraints.
-.planning/REQUIREMENTS.md: acceptance requirements for the active milestone.
-.planning/ROADMAP.md: closure phases and deferred product roadmap.
-.planning/STATE.md: resumption state and next action.
+Private planning `PROJECT.md`: purpose, value, scope, constraints.
+Private planning `REQUIREMENTS.md`: acceptance requirements for the active milestone.
+Private planning `ROADMAP.md`: closure phases and deferred product roadmap.
+Private planning `STATE.md`: resumption state and next action.
 docs/context/BASELINE.md: existing product and architecture context.
 docs/context/HTTPS_POC.md: implementation report and verification gaps.
 docs/context/DECISIONS.md: durable scope and engineering decisions.

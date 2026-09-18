@@ -69,8 +69,8 @@ mirroring how `debuggable` is already read) — no other new static extraction w
 **Coverage note:** these 10 rules are Phase 10.1's static catalog — manifest and platform
 configuration checks only (Section 9(a) of the Security Audit specification). Secret-candidate
 scanning (9b), network trust indicators (9c), code-pattern detection (9d), and build-protection/
-dependency checks (9e) are separate, larger pieces of work, not yet started — see
-`.planning/REQUIREMENTS.md`'s Milestone 10 block and `.planning/STATE.md` for their exact status.
+dependency checks (9e) are separate, larger pieces of work. Their exact implementation status is
+maintained in private milestone notes and is not claimed by this public catalog.
 
 ## Planned, not yet implemented
 
@@ -130,7 +130,7 @@ this table does not self-update.
 ---
 *Catalog defined: 2026-09-14, Phase 10.1. Implementation:
 `core/risk/src/main/kotlin/com/nadeem/apkscope/core/risk/audit/`. Tests:
-`core/risk/src/test/kotlin/com/nadeem/apkscope/core/risk/audit/` (33 tests, see
-`.planning/phases/10.1-static-audit-engine/10.1-01-SUMMARY.md` for the run this was verified against).
+`core/risk/src/test/kotlin/com/nadeem/apkscope/core/risk/audit/` (33 tests; reproduce the run with
+the Gradle test task rather than relying on private planning notes).
 Outcome/severity/confidence model adopted the same day, replacing an initial PASS/WARN/FAIL draft,
 before any report was persisted under either version.*

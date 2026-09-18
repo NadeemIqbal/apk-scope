@@ -117,15 +117,14 @@ Portable documentation (this file, and the rest of `docs/`) never contains:
 
 - Actual checkpoint contents, job IDs, or last-run timestamps for any specific device or run.
 - Any credential, API key, or token — this feature requires none; if a future phase ever introduces one,
-  it is never stored in this file, in `.planning/`, or committed to this repository under any path.
+  it is never stored in this file, in private planning state, or committed to this repository under any path.
 
 Actual runtime checkpoint and scheduling state belongs in the app's own on-device storage (the same
 `context.filesDir`-derived, atomic-write storage pattern Milestone 9 established for
-`StaticAnalysisResultStore` and the URL-evidence status store — see `.planning/STATE.md`'s Milestone 9
-persistence-hardening sections), scoped per analysis, never in a location this repository's version
+`StaticAnalysisResultStore` and the URL-evidence status store), scoped per analysis, never in a location this repository's version
 control tracks.
 
 ---
 *Defined: 2026-09-14, opening Milestone 10. Phase 10.10 owns the actual `WorkManager` implementation this
-document describes; nothing here is implemented yet — see `.planning/ROADMAP.md`'s Milestone 10 block
-for status.*
+document describes; nothing here is implemented yet. Implementation status is maintained separately
+from this public design document.*

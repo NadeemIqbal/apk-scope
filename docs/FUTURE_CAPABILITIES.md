@@ -7,8 +7,8 @@ All capabilities require the acceptance contract in [Verification Strategy](VERI
 ## Priority order
 
 1. Close the current genuine traffic viewer, persisted correlation, attribution, and lifecycle gaps.
-   **Closed 2026-09-14 (Milestone 9)** — see `.planning/STATE.md`'s "Final Milestone 9 requirement
-   reconciliation" for the criterion-by-criterion evidence, including a physical-device run of the full
+   **Closed 2026-09-14 (Milestone 9)** — the criterion-by-criterion evidence is maintained in the
+   project's private verification record, including a physical-device run of the full
    viewer/correlation/persistence/lifecycle path. This closure covers HTTP/1.1 and HTTP/2 specifically;
    it does not extend to gRPC or SSE product-level verification (priority 3 below), which remain
    unstarted.

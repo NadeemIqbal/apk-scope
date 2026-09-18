@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Milestone 10 (Security Audit), Phase 10.3: closes the `ApkMetadata.networkSecurityConfigPresent`
  * hardcoded-`null` gap named as a prerequisite blocker for MS10-NET01 in the prior checkpoint
- * (`.planning/STATE.md`'s "Exact next action" section). [ApkAnalyzer.analyze] needs a real
+ * (the maintainer's private verification notes). [ApkAnalyzer.analyze] needs a real
  * `PackageManager`, so this is an instrumented test, not a JVM one (`ApkAnalyzerTest`'s own doc
  * comment already establishes this constraint for this class).
  *

@@ -240,7 +240,7 @@ class SandboxVpnService : VpnService() {
   * Phase 9.1 investigation diagnostic (2026-09-12) — **not production behavior**. Pure logging, no
   * change to `Builder`/tunnel state, no re-enabling of the disabled `addAllowedApplication` call.
   * Collects the exact facts needed to test hypothesis 2 ("wrong-user package/UID resolution inside
-  * the scoping call") from `.planning/STATE.md`'s "Phase 9.1 attempt" section: this process's own
+  * the scoping call") from the maintainer's private Phase 9.1 verification notes: this process's own
   * user identity, the target package's resolved UID/user (if resolvable at all right now, before
   * install completes it may not be — that itself is informative), and the live
   * always-on-VPN/lockdown policy state read back from `DevicePolicyManager` (not assumed from what

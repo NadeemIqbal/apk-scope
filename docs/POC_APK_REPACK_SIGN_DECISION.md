@@ -29,8 +29,8 @@ pinning:
 - [HTTPS_INSPECTION_POC.md](HTTPS_INSPECTION_POC.md) — "Bypassing in-app certificate pinning requires
   runtime binary hooking (e.g., Frida/Xposed) or reverse-engineering bytecode patches, which APK Scope
   does not attempt or perform."
-- `.planning/PROJECT.md` constraint 6 — "Do not bypass pinning, patch APKs, require root, or add a
-  second VPN."
+- The project's private planning constraint 6 — "Do not bypass pinning, patch APKs, require root, or
+  add a second VPN."
 
 This POC's requested capability — repack a controlled fixture APK to inject a pinned Frida Gadget
 build, re-sign it, and use it to demonstrate that instrumentation can defeat that fixture's own pin
@@ -61,9 +61,9 @@ an isolated, one-off exception.** Terms of that exception, binding for all work 
    stays enabled and unweakened; no second VPN; no root; existing Work Profile, CA lifecycle, VPN,
    Traffic Inspector, and evidence-persistence infrastructure are reused, not duplicated; risk scoring
    is unchanged; evidence from the modified fixture is never promoted into an original-APK finding.
-6. **GSD stays separate.** This POC is tracked in its own file
-   (`.planning/POC-APK-REPACK-SIGN.md`), not inside Milestone 10's (Security Audit) requirements,
-   roadmap, or state. Milestone 10's numbering, requirement IDs, and history are untouched.
+6. **GSD stays separate.** This POC is tracked in a private planning record, not inside Milestone 10's
+   (Security Audit) requirements, roadmap, or state. Milestone 10's numbering, requirement IDs, and
+   history are untouched.
 
 ## Why this is an exception and not a reinterpretation
 

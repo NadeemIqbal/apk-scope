@@ -1,11 +1,10 @@
 # Security Audit
 
 Product overview for the Security Audit capability (Milestone 10). This document explains what the
-capability is and how its parts fit together. It is not the source of truth for requirement text or
-phase status — see [.planning/REQUIREMENTS.md](../.planning/REQUIREMENTS.md)'s "Milestone 10" block and
-[.planning/ROADMAP.md](../.planning/ROADMAP.md)'s Milestone 10 phases for those, and do not duplicate
-their content here. This document links to them and to the three sibling documents that own their own
-narrower slice: [Security Audit Rules](SECURITY_AUDIT_RULES.md) (the rule catalog),
+capability is and how its parts fit together. It is not the source of truth for private milestone
+execution state; the public rule catalog and verification contract are maintained in the sibling
+documents below. This document links to the three documents that own their own narrower slice:
+[Security Audit Rules](SECURITY_AUDIT_RULES.md) (the rule catalog),
 [Security Audit Verification](SECURITY_AUDIT_VERIFICATION.md) (the acceptance/evidence contract), and
 [Autonomous Execution](AUTONOMOUS_EXECUTION.md) (unattended run mechanics).
 
@@ -68,8 +67,8 @@ destination.
 This milestone is a new, explicitly user-directed scope addition opened 2026-09-14. It does not
 supersede or begin `docs/FUTURE_CAPABILITIES.md`'s priority order — priority 3 (gRPC/SSE product-level
 verification) remains the next unstarted item in that separate list and is not touched by this
-milestone. See `.planning/PROJECT.md`'s Current Priority section and `.planning/ROADMAP.md`'s Milestone
-10 block for how the two tracks relate.
+milestone. The maintainer's private milestone notes track how the two work tracks relate; this public
+document does not reproduce that internal execution state.
 
 ---
 *Added: 2026-09-14, opening Milestone 10.*

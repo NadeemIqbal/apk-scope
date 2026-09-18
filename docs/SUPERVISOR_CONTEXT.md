@@ -23,8 +23,8 @@ The latest supplied device report describes a successful fixture HTTPS response,
 **2026-09-14 update**: the item above is no longer open. Milestone 9 (opened specifically to close this
 and the two related gaps below) closed on 2026-09-14 after every recorded acceptance criterion was
 either met with on-device evidence or reclassified as a documented platform limitation with a shipped
-substitute — see `.planning/STATE.md`'s "Final Milestone 9 requirement reconciliation" for the
-criterion-by-criterion accounting, and this repository's own working tree (uncommitted) for the source.
+substitute — the criterion-by-criterion accounting is maintained in the maintainer's private
+verification record, and the source is in this repository.
 Traffic Inspector display and persisted URL correlation are both now product verified, including on a
 physical Pixel 8, with restart persistence directly confirmed. This does not extend to gRPC/SSE, which
 remain at component/engine-integration verification only — see the updated §16 below.
@@ -219,8 +219,8 @@ Unqualified support requires the applicable gates in [Verification Strategy](VER
 
 Finish the actual viewer and persistence acceptance path before expanding protocol scope. Audit global store isolation, transient capture lifetime, bounded imports, observable import status, exact versus host matching, and nontransactional or concurrent persistence updates.
 
-**2026-09-14 update**: this paragraph's own closure work is done — Milestone 9 closed on this date; see
-`.planning/STATE.md`'s "Final Milestone 9 requirement reconciliation." Global store isolation, transient
+**2026-09-14 update**: this paragraph's own closure work is done — Milestone 9 closed on this date; the
+criterion-by-criterion accounting is maintained in the maintainer's private verification record. Global store isolation, transient
 capture lifetime (a durable `markPending` state now exists precisely so cleanup ordering cannot silently
 lose evidence), bounded imports, observable import status (`PENDING`/`EMPTY`/`IMPORTED`/`FAILED`, durable
 and directly tested), exact-versus-host matching, and concurrent persistence updates (a real per-key
@@ -232,9 +232,9 @@ and has not been started.
 Review reported `StaticAnalysisResultStore` ObjectStream persistence for compatibility and atomicity; do not deserialize untrusted transported Java objects. Inspect broad catches, stale session reconciliation, raw tunnel timeout behavior, temporary diagnostics, sensitive logs, fragmented ClientHello limits, and unprotected socket failure paths.
 
 **2026-09-14 update**: this requirement's own text always offered two satisfying options — full
-non-Java-serialization replacement, or integrity verification before deserializing (see
-`.planning/ROADMAP.md`'s original, undated Phase 9.6 task list, written 2026-09-12 before any of this
-work began). The integrity-verification option is now fully delivered: a magic/version format-validation
+non-Java-serialization replacement, or integrity verification before deserializing (see the
+maintainer's private roadmap notes for the original, undated Phase 9.6 task list). The
+integrity-verification option is now fully delivered: a magic/version format-validation
 header plus a genuine CRC32 payload check, both evaluated before any `readObject()` call, plus a real
 concurrent-import lost-update race found and closed with a per-key in-process lock. **Full replacement
 of Java serialization was not attempted and remains real, explicitly-named technical debt** — worth

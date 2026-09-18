@@ -35,10 +35,10 @@
 
 ### Genuine Acceptance Evidence vs. Gaps for HTTP/2, gRPC, and SSE
 - **HTTP/1.1, HTTPS/1.1, and WebSocket RFC 6455**: Fully verified end-to-end through `HttpsInspectionEngine` on device via `testPlaintextHttpGetOnDevice`, `testPlaintextHttpPostOnDevice`, `testEngineInterceptionWithRealPublicHttpsGetOnDevice`, `testEngineInterceptionWithRealPublicHttpsPostOnDevice`, and `testWebSocketUpgradeAndRelayOnDevice`.
-- **HTTP/2**: Framing, HPACK decoding, stream tracking, trailers, and resets are verified via unit tests (`Http2FrameParserTest`) and, as of 2026-09-12 (Phase 8.9, see `.planning/STATE.md`), via a genuine ALPN-negotiated relay against a real external server on device (`testHttp2RelayOnDevice` — no longer loopback-piped synthetic frames).
+- **HTTP/2**: Framing, HPACK decoding, stream tracking, trailers, and resets are verified via unit tests (`Http2FrameParserTest`) and, as of 2026-09-12 (Phase 8.9, see the private verification record), via a genuine ALPN-negotiated relay against a real external server on device (`testHttp2RelayOnDevice` — no longer loopback-piped synthetic frames).
 - **gRPC**: 5-byte length-prefix reassembly, decompression, canonical status mapping, and trailer capture are verified via unit tests (`GrpcMessageDecoderTest`) and both a decoder-level device test (`testGrpcInspectionOnDevice`, kept) and a real gRPC-over-HTTP/2 call against Google's public interop server (`testHttp2GrpcRelayOnDevice`, added 2026-09-12).
 - **SSE**: Incremental line parsing, multi-line `data:` concatenation, and immediate dispatch before stream closure are verified via unit tests (`SseEventParserTest`) and, as of 2026-09-12, real streams over both HTTP/1.1 (`testHttp11SseStreamingOnDevice`, rewritten off an unreachable `127.0.0.1` target that `DestinationPolicy` correctly denies, onto Wikimedia's recentchange feed) and native HTTP/2 (`testHttp2SseStreamingOnDevice`).
-- **RESOLVED (was UNVERIFIED GAP)**: Live **Work Profile VPN preamble → HttpsInspectionEngine → Live Remote Server** forwarding for HTTP/2, gRPC, and SSE is now verified at the `HttpsInspectionEngine` instrumentation-test level — real TLS+ALPN handshake, real frames, real external servers, driven through the same auth-token+IP+port+SNI preamble `TcpProxy` sends in production. This surfaced and fixed two defects (a missing initial HTTP/2 SETTINGS frame to real upstreams, and a buggy `SocketChannel`-adapter upstream socket that silently dropped a write following an earlier one on the same connection) plus a design gap (the upstream ALPN offer was unconditional; a fallback now reconnects it without h2 when the real downstream client can't speak h2 but the real upstream can) and a case-sensitive-header defect breaking SSE/chunked detection against real servers. Full detail in `.planning/STATE.md` Phase 8.9. **Still not done**: the `TcpProxy` packet-capture-to-preamble handoff itself was not independently re-verified this pass, and no new fixture-app-in-Work-Profile traffic-viewer screenshots were taken for these three protocols.
+- **RESOLVED (was UNVERIFIED GAP)**: Live **Work Profile VPN preamble → HttpsInspectionEngine → Live Remote Server** forwarding for HTTP/2, gRPC, and SSE is now verified at the `HttpsInspectionEngine` instrumentation-test level — real TLS+ALPN handshake, real frames, real external servers, driven through the same auth-token+IP+port+SNI preamble `TcpProxy` sends in production. This surfaced and fixed two defects (a missing initial HTTP/2 SETTINGS frame to real upstreams, and a buggy `SocketChannel`-adapter upstream socket that silently dropped a write following an earlier one on the same connection) plus a design gap (the upstream ALPN offer was unconditional; a fallback now reconnects it without h2 when the real downstream client can't speak h2 but the real upstream can) and a case-sensitive-header defect breaking SSE/chunked detection against real servers. Full detail is retained in the private verification record. **Still not done**: the `TcpProxy` packet-capture-to-preamble handoff itself was not independently re-verified this pass, and no new fixture-app-in-Work-Profile traffic-viewer screenshots were taken for these three protocols.
 
 ---
 
@@ -55,9 +55,9 @@ Between commit `80f0ec9` (initial Milestone 8 completion) and `0ac4820` (current
    - **Commit ID**: `0ac4820c2c1cdefee367669829b822a99f2ea26b`
    - **Working Tree**: **Not clean.** The "clean, 0 uncommitted changes" and empty-patch digest claimed
      here previously were false — this milestone's real implementation was already sitting uncommitted
-     in the working tree when that claim was written. See `.planning/STATE.md` for the current diffstat
+     in the working tree when that claim was written. See the private verification record for the current diffstat
      and digest, regenerated rather than hand-copied here to avoid this same staleness recurring.
-3. **Build & Test Verification** (re-run fresh 2026-09-12, Phase 8.9 — see `.planning/STATE.md` for full detail):
+3. **Build & Test Verification** (re-run fresh 2026-09-12, Phase 8.9 — see the private verification record for full detail):
    - `./gradlew test`: 314 tests passed across 45 test suites (0 failures, 0 errors).
    - `am instrument` on `emulator-5554`: 25 of 25 real `HttpsInspectionIntegrationTest` device tests
      passed, plus 1 intentional `@Ignore` (demo-data seeding, correctly excluded from acceptance
@@ -95,7 +95,7 @@ Between commit `80f0ec9` (initial Milestone 8 completion) and `0ac4820` (current
   (`testApkAnalyzerAttachesHostCorrelationOnDevice`) — this covers host-level correlation only.
   Nothing yet calls it with *real* observed hostnames from a completed sandbox run (that needs a
   merge onto an already-persisted analysis, deliberately not built this pass — see
-  `.planning/STATE.md`), and exact-URL `RUNTIME_OBSERVED` has no production path at all: the only
+  private verification record), and exact-URL `RUNTIME_OBSERVED` has no production path at all: the only
   existing cross-profile evidence artifact (`RuntimeObservationArtifact`) carries per-connection
   hostnames, not full HTTP transactions (no URL/method/status), so it cannot support exact-URL
   matching even once wired.
@@ -112,7 +112,7 @@ Between commit `80f0ec9` (initial Milestone 8 completion) and `0ac4820` (current
   - Heavy concurrent multiplexing under network congestion / packet drop.
   - Dynamic HPACK table desynchronization across proxy boundaries.
   - Flow control window exhaustion (`WINDOW_UPDATE` backpressure across unequal client/server window sizes).
-  - ~~End-to-end live ALPN `h2` forwarding in `HttpsInspectionEngine`~~ — **resolved 2026-09-12**, see Phase 8.9 in `.planning/STATE.md`.
+  - ~~End-to-end live ALPN `h2` forwarding in `HttpsInspectionEngine`~~ — **resolved 2026-09-12**, see the private Phase 8.9 verification record.
 
 ### gRPC Protocol Verification
 - **Verified Capabilities**:
@@ -157,7 +157,7 @@ Between commit `80f0ec9` (initial Milestone 8 completion) and `0ac4820` (current
 | **HTTP/1.1 & HTTPS/1.1 Interception** | Dual-leg TLS MITM, leaf certificate generation via local CA, request/response decoding | **Verified Production** | `HttpsInspectionEngine.kt`, `testEngineInterceptionWithRealPublicHttpsGetOnDevice` |
 | **WebSocket RFC 6455 Inspection** | Frame parsing, text/binary inspection, continuation defragmentation | **Verified Production** | `WebSocketFrameParser.kt`, `testWebSocketUpgradeAndRelayOnDevice` |
 | **HTTP/2 Demuxing & Relaying** | Framing, HPACK decoding, stream tracking, trailers, resets | **Verified Production** (2026-09-12) | `Http2FrameParser.kt`, `Http2RelayHandler.kt`, `Http2FrameParserTest`, `testHttp2RelayOnDevice` (now real ALPN-negotiated relay, not synthetic frames) |
-| **HTTP/2 Live VPN Interception** | End-to-end engine-level interception of remote `h2` traffic via real ALPN negotiation | **Verified** (2026-09-12) | `testHttp2RelayOnDevice` against httpbin.org — see `.planning/STATE.md` Phase 8.9 for the defects this surfaced and fixed. `TcpProxy`'s own packet-to-preamble handoff not independently re-verified this pass. |
+| **HTTP/2 Live VPN Interception** | End-to-end engine-level interception of remote `h2` traffic via real ALPN negotiation | **Verified** (2026-09-12) | `testHttp2RelayOnDevice` against httpbin.org — see the private Phase 8.9 verification record for the defects this surfaced and fixed. `TcpProxy`'s own packet-to-preamble handoff not independently re-verified this pass. |
 | **gRPC Message Inspection** | 5-byte length prefix, decompression, canonical status (0..16), trailers | **Verified Production** (2026-09-12) | `GrpcMessageDecoder.kt`, `GrpcMessageDecoderTest`, `testGrpcInspectionOnDevice` (decoder-level, kept), `testHttp2GrpcRelayOnDevice` (real call against Google's public interop server) |
 | **gRPC Live VPN Interception** | End-to-end engine-level interception of remote gRPC calls via real ALPN negotiation | **Verified** (2026-09-12) | `testHttp2GrpcRelayOnDevice` |
 | **Server-Sent Events (SSE)** | `text/event-stream` parser, multi-line `data:`, live emission before close | **Verified Production** (2026-09-12) | `SseEventParser.kt`, `SseEventParserTest`, `testSseStreamingOnDevice` (decoder-level, kept), `testHttp11SseStreamingOnDevice`, `testHttp2SseStreamingOnDevice` |

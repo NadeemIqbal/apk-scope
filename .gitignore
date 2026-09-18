@@ -55,3 +55,6 @@ demo_capture/
 
 # Local design explorations and generated mockups
 designs/
+
+# Local execution plans and internal project state
+.planning/

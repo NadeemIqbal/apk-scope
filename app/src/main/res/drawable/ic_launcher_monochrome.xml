@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed-icon layer (lint's MonochromeLauncherIcon) — a hexagonal silhouette
+     standing in for the corner-on isometric cube in the real launcher artwork (a raster PNG;
+     see ic_launcher_foreground's mipmap variants and README note in this checkpoint's report for
+     why a raster source, not hand-authored vector paths, is now the source of truth for the
+     full-color icon). Single fill color per the platform's own monochrome-icon convention — the
+     system re-tints this at render time, so the fill color here is a placeholder, not the real
+     rendered color. Same scale/pivot as the foreground layer's safe-zone framing. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+  <group
+      android:pivotX="24"
+      android:pivotY="24"
+      android:scaleX="0.667"
+      android:scaleY="0.667">
+    <path
+        android:pathData="M24,6L40,15L40,33L24,42L8,33L8,15Z"
+        android:fillColor="#FF000000"/>
+  </group>
+</vector>

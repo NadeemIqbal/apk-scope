@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.staticanalysis.DexDisassemblerTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:29:18.305Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.044">
+  <properties/>
+  <testcase name="binaryXmlParserDecompilesFullXmlAndConfig" classname="com.apksandbox.core.staticanalysis.DexDisassemblerTest" time="0.004"/>
+  <testcase name="dexDisassemblerExtractsSmaliFromRealApk" classname="com.apksandbox.core.staticanalysis.DexDisassemblerTest" time="0.032"/>
+  <testcase name="dexDisassemblerReturnsNotFoundForMissingClass" classname="com.apksandbox.core.staticanalysis.DexDisassemblerTest" time="0.006"/>
+  <testcase name="binaryXmlParserExtractsManifestComponentsAndIntentFilters" classname="com.apksandbox.core.staticanalysis.DexDisassemblerTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

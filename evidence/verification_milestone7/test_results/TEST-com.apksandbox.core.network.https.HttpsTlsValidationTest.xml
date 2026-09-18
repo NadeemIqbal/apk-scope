@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.https.HttpsTlsValidationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-11T12:34:52.251Z" hostname="NextGenis-MacBook-Pro-3.local" time="1.226">
+  <properties/>
+  <testcase name="testUpstreamHostnameMismatchRejection" classname="com.apksandbox.core.network.https.HttpsTlsValidationTest" time="0.164"/>
+  <testcase name="testInvalidUpstreamCertificateRejection" classname="com.apksandbox.core.network.https.HttpsTlsValidationTest" time="1.061"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

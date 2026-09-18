@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.traffic.Http2FrameParserTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-12T02:58:51.411Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.014">
+  <properties/>
+  <testcase name="testBoundedBodyPreview" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.002"/>
+  <testcase name="testResponseHeadersAndStatus" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.007"/>
+  <testcase name="testHttp2StreamTrackerWithGrpc" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.002"/>
+  <testcase name="testHeaderParsingAndPseudoHeaders" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.0"/>
+  <testcase name="testStreamResetHandling" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.0"/>
+  <testcase name="testHttp2StreamTrackerWithSse" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.001"/>
+  <testcase name="testHttp2StreamTrackerLifecycle" classname="com.apksandbox.core.network.traffic.Http2FrameParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.model.SessionReconciliationTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:14:29.449Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.001">
+  <properties/>
+  <testcase name="differentSessionIdWhilePersonalNotRunningIsOrphanNotConflict" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="matchingRunningRecovers" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="personalMissingPlusWorkRunningIsOrphan" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="matchingNonTerminalNonRunningIsNoAction" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="personalRunningWorkDifferentSessionIsInterrupted" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="differentSessionIdWhilePersonalRunningIsConflict" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="noWorkActiveSessionIsNoAction" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="personalNotRunningNeverInterrupts" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="personalRunningWorkMatchingIsNoAction" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <testcase name="personalTerminalPlusWorkRunningIsStale" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.001"/>
+  <testcase name="personalRunningWorkAbsentIsInterrupted" classname="com.apksandbox.core.model.SessionReconciliationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

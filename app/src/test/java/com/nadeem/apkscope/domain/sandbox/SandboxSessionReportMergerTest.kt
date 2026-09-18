@@ -1,0 +1,132 @@
+package com.nadeem.apkscope.domain.sandbox
+
+import com.nadeem.apkscope.core.model.CleanupSummary
+import com.nadeem.apkscope.core.model.EnforcementMechanism
+import com.nadeem.apkscope.core.model.EnforcementStatus
+import com.nadeem.apkscope.core.model.PolicyEnforcementResult
+import com.nadeem.apkscope.core.model.Recoverability
+import com.nadeem.apkscope.core.model.SandboxError
+import com.nadeem.apkscope.core.model.SandboxErrorCode
+import com.nadeem.apkscope.core.model.SandboxPolicy
+import com.nadeem.apkscope.core.model.SandboxPolicyType
+import com.nadeem.apkscope.core.model.SandboxSession
+import com.nadeem.apkscope.core.model.SandboxSessionState
+import com.nadeem.apkscope.sandbox.SandboxStatusReport
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.Instant
+
+/** Checkpoint 4.1 §19: the merge logic shared by both the push (`SandboxReportActivity`) and pull (`DefaultSandboxSessionCoordinator.importEvidence`) delivery paths — a report is a report regardless of transport. */
+class SandboxSessionReportMergerTest {
+ private fun session(state: SandboxSessionState = SandboxSessionState.PREPARING) = SandboxSession(
+  id = "s1", analysisId = "a1", packageName = "com.example.fixture", state = state,
+  requestedPolicy = SandboxPolicy(), createdAt = Instant.EPOCH,
+ )
+
+ @Test fun mergeFactsAppliesEveryNonNullField() {
+  val report = SandboxStatusReport(
+   "s1", SandboxSessionState.INSTALLED, installSessionId = 3, installedVersionCode = 9L,
+   dataClearRequestedAtEpochMs = 100L, dataClearCompletedAtEpochMs = 200L, dataClearResult = true,
+  )
+  val merged = SandboxSessionReportMerger.mergeFacts(session(), report)
+  assertEquals(3, merged.installSessionId)
+  assertEquals(9L, merged.installedVersionCode)
+  assertEquals(Instant.ofEpochMilli(100L), merged.dataClearRequestedAt)
+  assertEquals(Instant.ofEpochMilli(200L), merged.dataClearCompletedAt)
+  assertEquals(true, merged.dataClearResult)
+ }
+
+ @Test fun mergeFactsLeavesUnsetFieldsAlone() {
+  val original = session().copy(installedVersionCode = 42L)
+  val report = SandboxStatusReport("s1", SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION) // no installedVersionCode
+  val merged = SandboxSessionReportMerger.mergeFacts(original, report)
+  assertEquals(42L, merged.installedVersionCode)
+ }
+
+ @Test fun mergeFactsPreservesEarlierPoliciesWhenPatchIsPartial() {
+  val vpn = listOf(PolicyEnforcementResult(SandboxPolicyType.ALWAYS_ON_VPN_LOCKDOWN, EnforcementStatus.ENFORCED, EnforcementMechanism.VPN_SERVICE, null))
+  val original = session().copy(enforcementResults = vpn)
+  val camera = PolicyEnforcementResult(SandboxPolicyType.CAMERA_RUNTIME_PERMISSION_DENIAL, EnforcementStatus.NOT_SUPPORTED, EnforcementMechanism.DEVICE_POLICY_MANAGER, null)
+  val merged = SandboxSessionReportMerger.mergeFacts(original, SandboxStatusReport("s1", SandboxSessionState.INSTALLED, enforcements = listOf(camera)))
+  assertEquals(listOf(vpn.single(), camera), merged.enforcementResults)
+ }
+
+ @Test fun mergeFactsReplacesOnlyThePolicyUpdatedByPatch() {
+  val oldVpn = PolicyEnforcementResult(SandboxPolicyType.ALWAYS_ON_VPN_LOCKDOWN, EnforcementStatus.FAILED, EnforcementMechanism.DEVICE_POLICY_MANAGER, "old")
+  val newVpn = oldVpn.copy(status = EnforcementStatus.ENFORCED, mechanism = EnforcementMechanism.VPN_SERVICE, message = null)
+  val merged = SandboxSessionReportMerger.mergeFacts(
+   session().copy(enforcementResults = listOf(oldVpn)),
+   SandboxStatusReport("s1", SandboxSessionState.READY, enforcements = listOf(newVpn)),
+  )
+  assertEquals(listOf(newVpn), merged.enforcementResults)
+ }
+
+ @Test fun mergeFactsLeavesEnforcementsAloneWhenPatchIsEmpty() {
+  val vpn = listOf(PolicyEnforcementResult(SandboxPolicyType.ALWAYS_ON_VPN_LOCKDOWN, EnforcementStatus.ENFORCED, EnforcementMechanism.VPN_SERVICE, null))
+  val original = session().copy(enforcementResults = vpn)
+  val merged = SandboxSessionReportMerger.mergeFacts(original, SandboxStatusReport("s1", SandboxSessionState.INSTALLED))
+  assertEquals(vpn, merged.enforcementResults)
+ }
+
+ @Test fun mergeCleanupSummaryFillsInPersonalOnlyFacts() {
+  val workVerified = CleanupSummary(appDataCleared = true, apkRemoved = true, workTempApkDeleted = true, personalTempApkDeleted = false, uriGrantReleased = false, networkSessionClosed = false)
+  val merged = SandboxSessionReportMerger.mergeCleanupSummary(workVerified, personalCleanupDone = true)
+  assertTrue(merged.personalTempApkDeleted)
+  assertTrue(merged.uriGrantReleased)
+  assertTrue(merged.networkSessionClosed)
+  assertTrue(merged.isComplete)
+ }
+
+ @Test fun mergeCleanupSummaryHonestlyReflectsFailedPersonalCleanup() {
+  val workVerified = CleanupSummary(true, true, true, false, false, false)
+  val merged = SandboxSessionReportMerger.mergeCleanupSummary(workVerified, personalCleanupDone = false)
+  assertTrue(!merged.personalTempApkDeleted)
+  assertTrue(!merged.isComplete)
+ }
+
+ @Test fun safeTransitionAppliesALegalMove() {
+  val next = SandboxSessionReportMerger.safeTransition(session(SandboxSessionState.CREATED), SandboxSessionState.PREPARING)
+  assertEquals(SandboxSessionState.PREPARING, next?.state)
+ }
+
+ @Test fun safeTransitionReturnsSameSessionWhenAlreadyAtTarget() {
+  val current = session(SandboxSessionState.READY)
+  assertEquals(current, SandboxSessionReportMerger.safeTransition(current, SandboxSessionState.READY))
+ }
+
+ @Test fun safeTransitionReturnsNullOnIllegalMove_andNeverThrows() {
+  // CREATED -> READY skips the entire chain — illegal.
+  assertNull(SandboxSessionReportMerger.safeTransition(session(SandboxSessionState.CREATED), SandboxSessionState.READY))
+ }
+
+ /**
+  * Regression test for the "APK too large for the cross-profile handoff" bug (confirmed on-device: a
+  * real 131 MiB APK exceeding the handoff's old 128 MiB limit): before the fix, the copy failure was
+  * caught by `SandboxWorkerActivity.onImportFailed` and silently discarded — no report was ever sent,
+  * so a `PREPARING` session had no path to `FAILED` and the "Preparing Sandbox" screen spun forever.
+  * `onImportFailed` now builds and sends exactly the [SandboxStatusReport] shape asserted here; this
+  * test proves the receiving side (`SandboxReportActivity.onImportComplete`, which calls
+  * [SandboxSessionReportMerger.safeTransition] exactly like this) actually unsticks a `PREPARING`
+  * session into `FAILED` once that report arrives — the transition this whole fix depends on.
+  */
+ @Test fun aHandoffFailedErrorReportUnsticksAPreparingSessionIntoFailed() {
+  val stuckInPreparing = session(SandboxSessionState.PREPARING)
+  val error = SandboxError(
+   SandboxErrorCode.HANDOFF_FAILED,
+   "The APK could not be transferred into the sandbox: Transfer too large.",
+   "java.lang.IllegalArgumentException: Transfer too large",
+   Recoverability.RETRYABLE,
+  )
+  val report = SandboxStatusReport(sessionId = stuckInPreparing.id, state = SandboxSessionState.FAILED, error = error)
+
+  // Exactly SandboxReportActivity.onImportComplete's own sequence for report.error != null.
+  var next = SandboxSessionReportMerger.mergeFacts(stuckInPreparing, report)
+  next = SandboxSessionReportMerger.safeTransition(next, SandboxSessionState.FAILED)?.copy(error = report.error) ?: next
+
+  assertEquals("a PREPARING session must not remain stuck once a HANDOFF_FAILED report arrives", SandboxSessionState.FAILED, next.state)
+  assertEquals(SandboxErrorCode.HANDOFF_FAILED, next.error?.code)
+  assertEquals(Recoverability.RETRYABLE, next.error?.recoverability)
+ }
+}

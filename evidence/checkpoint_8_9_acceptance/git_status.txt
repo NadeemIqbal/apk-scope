@@ -1,0 +1,20 @@
+ M app/src/main/java/com/apksandbox/domain/sandbox/SandboxSessionCoordinator.kt
+ M app/src/main/java/com/apksandbox/sandbox/SandboxVpnService.kt
+ M app/src/main/java/com/apksandbox/sandbox/SandboxWorkQueryActivity.kt
+ M app/src/main/java/com/apksandbox/spike/GateVpnService.kt
+ M app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkEntryScreen.kt
+ M app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkLiveMonitorScreen.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/ForwardingEngine.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/TcpProxy.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/https/HttpsInspectionEngine.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2FrameParser.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2RelayHandler.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficInspectionStore.kt
+ M core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficRecord.kt
+?? ../CLAUDE.md
+?? evidence/checkpoint_8_9_acceptance/
+?? ../docs/ARCHITECTURE_CONSTRAINTS.md
+?? ../docs/FUTURE_CAPABILITIES.md
+?? ../docs/PRODUCT_VISION.md
+?? ../docs/SUPERVISOR_CONTEXT.md
+?? ../docs/VERIFICATION_STRATEGY.md

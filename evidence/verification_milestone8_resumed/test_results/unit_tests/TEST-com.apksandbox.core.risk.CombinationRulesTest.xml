@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.risk.CombinationRulesTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-09-11T16:56:33.892Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.005">
+  <properties/>
+  <testcase name="accessibilityBoot_doesNotFireWithOnlyBoot" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="backgroundLocationInternet_doesNotFireWithOnlyInternet" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.001"/>
+  <testcase name="contactsInternet_doesNotFireWithOnlyInternet" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="backgroundLocationInternet_firesWhenBothDeclared" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.003"/>
+  <testcase name="contactsInternet_firesWhenBothDeclared" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="accessibilityOverlay_firesWhenBothDeclared" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="smsInternet_doesNotFireWithOnlyInternet" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="smsInternet_firesWithAnySmsPermission" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="backgroundLocationInternet_doesNotFireWithOnlyLocation" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="accessibilityBoot_doesNotFireWithOnlyAccessibility" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="smsInternet_firesWhenBothDeclared" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="smsInternet_doesNotFireWithOnlySms" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="accessibilityBoot_firesWhenBothDeclared" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="accessibilityOverlay_doesNotFireWithOnlyOverlay" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="accessibilityOverlay_doesNotFireWithOnlyAccessibility" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <testcase name="contactsInternet_doesNotFireWithOnlyContacts" classname="com.apksandbox.core.risk.CombinationRulesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

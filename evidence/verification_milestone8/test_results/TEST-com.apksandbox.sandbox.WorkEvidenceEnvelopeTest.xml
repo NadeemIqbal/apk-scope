@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:29:16.667Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.001">
+  <properties/>
+  <testcase name="rejectedWhenPackageNameDiffers" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <testcase name="rejectedWhenSessionIdEmpty" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <testcase name="rejectedWhenSessionIdDiffers" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <testcase name="fromJsonToleratesMissingReport" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.001"/>
+  <testcase name="validWhenPackageNameNotYetKnownEitherSide" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <testcase name="validWhenSessionAndPackageMatch" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <testcase name="fromJsonParsesReportWhenPresent" classname="com.apksandbox.sandbox.WorkEvidenceEnvelopeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

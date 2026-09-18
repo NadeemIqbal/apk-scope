@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="22" failures="0" errors="0" skipped="0" time="44.864" timestamp="2026-09-11T17:00:35" hostname="localhost">
+  <testsuite name="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" tests="22" failures="0" errors="0" skipped="0" time="44.864" timestamp="2026-09-11T17:00:35" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+      <property name="model" value="Pixel_10_Pro_XL" />
+      <property name="apiLevel" value="37" />
+      <property name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+    </properties>
+    <testcase name="testCaGenerationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.120" />
+    <testcase name="testRedactionAndTruncationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.045" />
+    <testcase name="testEngineLifecycleAndBinding" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.032" />
+    <testcase name="testDestinationPolicyEnforcementOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.285" />
+    <testcase name="testTargetAppRejectionOfInspectionCaOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.420" />
+    <testcase name="testInspectionDisabledPassthroughOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.650" />
+    <testcase name="testEngineInterceptionWithRealPublicHttpsGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.110" />
+    <testcase name="testEngineInterceptionWithRealPublicHttpsPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.340" />
+    <testcase name="testConscryptHandshakeOnLoopback" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.180" />
+    <testcase name="testInvalidUpstreamCertificateRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.850" />
+    <testcase name="testUpstreamHostnameMismatchRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.620" />
+    <testcase name="testUnauthorizedInspectorAccessRejectedOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.080" />
+    <testcase name="testResetLifecycleOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.150" />
+    <testcase name="testPlaintextHttpGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.950" />
+    <testcase name="testPlaintextHttpPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.180" />
+    <testcase name="testWebSocketUpgradeAndRelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.410" />
+    <testcase name="testPostQuantumClientHelloAccumulatorOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.090" />
+    <testcase name="testPopulateTrafficViewerDemo" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.110" />
+    <testcase name="testHttp2RelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.025" />
+    <testcase name="testGrpcInspectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.015" />
+    <testcase name="testSseStreamingOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.015" />
+    <testcase name="testStaticAnalysisOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.807" />
+  </testsuite>
+</testsuites>

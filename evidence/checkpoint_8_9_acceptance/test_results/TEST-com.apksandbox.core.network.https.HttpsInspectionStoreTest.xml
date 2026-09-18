@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.https.HttpsInspectionStoreTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-12T08:06:46.219Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.022">
+  <properties/>
+  <testcase name="testBodyTruncationAt64KiB" classname="com.apksandbox.core.network.https.HttpsInspectionStoreTest" time="0.012"/>
+  <testcase name="testUrlSecretRedaction" classname="com.apksandbox.core.network.https.HttpsInspectionStoreTest" time="0.001"/>
+  <testcase name="testTransactionLimitAndOrdering" classname="com.apksandbox.core.network.https.HttpsInspectionStoreTest" time="0.008"/>
+  <testcase name="testJsonSecretRedaction" classname="com.apksandbox.core.network.https.HttpsInspectionStoreTest" time="0.0"/>
+  <testcase name="testHeaderRedaction" classname="com.apksandbox.core.network.https.HttpsInspectionStoreTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

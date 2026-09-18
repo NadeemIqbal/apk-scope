@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Milestone 10 (Security Audit), Phase 10.3, MS10-NET01 correction — a real, compiled fixture
+  resource exercising <domain-config>/<domain>/<pin-set>/<pin>, which fixture's existing
+  network_security_config.xml (base-config + debug-overrides only) does not cover. Not referenced by
+  AndroidManifest.xml — NetworkSecurityConfigParserTest reads it directly from the built APK's zip
+  entries by path, the same way it reads the existing resource. The pin digests below are obviously
+  fake (all-A/all-B base64 placeholders), never a real certificate's hash; this file is never wired
+  into android:networkSecurityConfig, so it has no effect on this fixture app's real TLS behavior.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">example.com</domain>
+        <pin-set expiration="2027-01-01">
+            <pin digest="sha256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <pin digest="sha256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+    </domain-config>
+</network-security-config>

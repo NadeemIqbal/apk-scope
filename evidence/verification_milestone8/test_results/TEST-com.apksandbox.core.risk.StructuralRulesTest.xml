@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.risk.StructuralRulesTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:14:32.928Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.001">
+  <properties/>
+  <testcase name="signatureVerificationFailed_firesWhenNotVerified" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="debuggable_firesWhenTrue" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="nativeLibraries_firesWhenPresent" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="oldTargetSdk_doesNotFireWhenUnknown" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="manyExportedComponents_doesNotFireForOrdinaryApp" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.001"/>
+  <testcase name="nativeLibraries_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="oldTargetSdk_firesBelowThreshold" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="manyExportedComponents_firesAtThreshold" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="oldTargetSdk_doesNotFireAtThreshold" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="manyExportedComponents_doesNotFireJustBelowThreshold" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="oldTargetSdk_doesNotFireAboveThreshold" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="signatureVerificationFailed_doesNotFireWhenVerified" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <testcase name="debuggable_doesNotFireWhenFalse" classname="com.apksandbox.core.risk.StructuralRulesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

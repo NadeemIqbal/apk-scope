@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-12T08:06:48.330Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.002">
+  <properties/>
+  <testcase name="testFragmentedTextDefragmentationWithInterleavedPing" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <testcase name="testPermessageDeflateDecompression" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.001"/>
+  <testcase name="testUnmaskedTextFrame" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <testcase name="testFragmentedBinaryDefragmentation" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <testcase name="testPingPongAndCloseFrames" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <testcase name="testMaskedClientTextFrame" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <testcase name="testMediumPayloadLength16Bit" classname="com.apksandbox.core.network.traffic.WebSocketFrameParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

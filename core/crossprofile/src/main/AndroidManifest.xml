@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"/>
+<!--
+  Deliberately does not declare ImportActivity or its intent-filter here: a library manifest that
+  self-registers a component leaves no way for a consuming app to subclass it (e.g. to add its own
+  evidence/telemetry hook, as the spike app does) without ending up with two activities claiming
+  the same intent-filter after manifest merging. The consuming app declares the concrete activity
+  (this class directly, or a subclass) and its intent-filter itself — see the spike app's manifest
+  for the pattern: action com.nadeem.apkscope.action.IMPORT_APK / ACTION_REPORT_READY, category DEFAULT,
+  data mimeType application/octet-stream.
+-->

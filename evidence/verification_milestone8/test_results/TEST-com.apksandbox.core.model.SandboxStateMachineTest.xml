@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.model.SandboxStateMachineTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:14:29.440Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.008">
+  <properties/>
+  <testcase name="illegalTransitionNeverMutatesState" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.006"/>
+  <testcase name="sessionTransitionToThrowsOnIllegalTransition" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.001"/>
+  <testcase name="everyNonTerminalStateCanFail" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="onlyPreRunStatesCanBeCancelled" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="cleanupRequiredIsReachableFromEveryCleanupPhaseAndCanRetryOrComplete" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="cannotGoBackward" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="cannotSkipStatesForward" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="sessionTransitionToAppliesLegalTransition" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="terminalStatesHaveNoLegalNextState" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.0"/>
+  <testcase name="happyPathIsFullyLegal" classname="com.apksandbox.core.model.SandboxStateMachineTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

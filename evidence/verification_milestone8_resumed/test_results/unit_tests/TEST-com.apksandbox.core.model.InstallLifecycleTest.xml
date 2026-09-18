@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.model.InstallLifecycleTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-11T16:56:33.716Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.004">
+  <properties/>
+  <testcase name="pendingRequiresConfirmation" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.0"/>
+  <testcase name="successRequiresPackageVerification" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.0"/>
+  <testcase name="absentInstallerAndPackageInterruptInstallingOnly" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.004"/>
+  <testcase name="abortedIsCancellation" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.0"/>
+  <testcase name="failuresNeverBecomeSuccess" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.0"/>
+  <testcase name="allNotificationGatesMustPass" classname="com.apksandbox.core.model.InstallLifecycleTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

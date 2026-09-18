@@ -1,0 +1,9 @@
+<paths>
+ <files-path name="handoff" path="handoff/"/>
+ <!-- Checkpoint 4: the persisted analysis APK ([ApkImportUseCase]) handed off for Prepare, and the small control-JSON files ([DefaultSandboxSessionCoordinator]'s continue-install/end-session requests and [SandboxWorkerService]'s status reports), both go through Handoff.send() -> FileProvider and need their own declared roots — "handoff/" alone does not cover them. -->
+ <files-path name="analysis" path="analysis/"/>
+ <files-path name="sandbox" path="sandbox/"/>
+ <files-path name="reports" path="reports/"/>
+ <!-- Checkpoint 4.1: SandboxWorkQueryActivity's small, bounded query-result artifacts (VPN-verify / evidence-export answers), granted back to the calling task via the ActivityResult it produces. -->
+ <files-path name="work_query_export" path="work_query_export/"/>
+</paths>

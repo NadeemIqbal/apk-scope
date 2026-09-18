@@ -1,0 +1,33 @@
+<resources>
+    <!--
+      Checkpoint 4.1: `SandboxWorkQueryActivity` needs to be visually invisible but must be able to
+      do real asynchronous work (a VPN establish-and-poll, a Room read) before calling `setResult`/
+      `finish()`. `Theme.NoDisplay` cannot be used for this — Android hard-requires a NoDisplay
+      Activity to call `finish()` before `onResume()` completes and crashes with
+      `IllegalStateException: did not call finish() prior to onResume() completing` otherwise (a
+      real crash hit during this checkpoint's own testing, not a theoretical concern). A fully
+      transparent *displayable* theme has no such restriction — this is the standard, documented
+      pattern for "an Activity that does invisible background work then closes itself".
+    -->
+    <style name="TransparentQueryActivity" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@style/NoAnimation</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
+
+    <style name="NoAnimation">
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
+        <item name="android:taskOpenEnterAnimation">@null</item>
+        <item name="android:taskOpenExitAnimation">@null</item>
+        <item name="android:taskCloseEnterAnimation">@null</item>
+        <item name="android:taskCloseExitAnimation">@null</item>
+    </style>
+</resources>

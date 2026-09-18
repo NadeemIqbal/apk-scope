@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.ui.navigation.NavigationPolicyTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:06:54.062Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.004">
+  <properties/>
+  <testcase name="testReadyBackPolicy_navigatesToDashboardAndPreservesSession" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.002"/>
+  <testcase name="testNoBackPathAccidentallyInvokesDestructiveOperations" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testStaticResultBackPolicy_navigatesToDashboard" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testPreparingBackPolicy_navigatesToDashboardAndPreservesSession" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testCleanupBackPolicy_navigatesToDashboardWithoutInterruptingCleanup" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testFinalReportBackPolicy_fromCompletionNavigatesToDashboard" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.001"/>
+  <testcase name="testCleanupRequiredDashboardAction_routesToSandboxCleanup" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testDashboardActiveSessionMapping_coversAllLifecycleStates" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testRunningBackPolicy_sessionRemainsRunningAndVpnActive" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testHistoricalReportBackPolicy_navigatesToReports" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.001"/>
+  <testcase name="testConfigureSandboxBackPolicy_navigatesToStaticResult" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <testcase name="testFinalReportBackPolicy_fromReportsNavigatesToReports" classname="com.apksandbox.ui.navigation.NavigationPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

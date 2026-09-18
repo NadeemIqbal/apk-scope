@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="17" failures="2" errors="0" skipped="0" time="0.000" timestamp="2026-09-11T12:23:07" hostname="localhost">
+  <testsuite name="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" tests="17" failures="2" errors="0" skipped="0" time="22.854" timestamp="2026-09-11T12:23:07" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="testRedactionAndTruncationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.015" />
+    <testcase name="testDestinationPolicyEnforcementOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.642" />
+    <testcase name="testPostQuantumClientHelloAccumulatorOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.010" />
+    <testcase name="testConscryptHandshakeOnLoopback" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.333" />
+    <testcase name="testResetLifecycleOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.370">
+      <failure>java.lang.AssertionError: Inspection config must be disabled after reset
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertFalse(Assert.java:65)
+	at com.apksandbox.sandbox.HttpsInspectionIntegrationTest.testResetLifecycleOnDevice(HttpsInspectionIntegrationTest.kt:548)
+</failure>
+    </testcase>
+    <testcase name="testUnauthorizedInspectorAccessRejectedOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.708" />
+    <testcase name="testTargetAppRejectionOfInspectionCaOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.934" />
+    <testcase name="testInspectionDisabledPassthroughOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.375" />
+    <testcase name="testUpstreamHostnameMismatchRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.242" />
+    <testcase name="testWebSocketUpgradeAndRelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.181">
+      <failure>java.lang.AssertionError: Client-to-server text message must be recorded
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertNotNull(Assert.java:713)
+	at com.apksandbox.sandbox.HttpsInspectionIntegrationTest.testWebSocketUpgradeAndRelayOnDevice(HttpsInspectionIntegrationTest.kt:756)
+</failure>
+    </testcase>
+    <testcase name="testEngineInterceptionWithRealPublicHttpsGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.381" />
+    <testcase name="testPlaintextHttpGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.694" />
+    <testcase name="testEngineInterceptionWithRealPublicHttpsPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.149" />
+    <testcase name="testCaGenerationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.140" />
+    <testcase name="testEngineLifecycleAndBinding" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.195" />
+    <testcase name="testPlaintextHttpPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.651" />
+    <testcase name="testInvalidUpstreamCertificateRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.834" />
+  </testsuite>
+</testsuites>

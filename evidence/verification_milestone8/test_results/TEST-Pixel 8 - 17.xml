@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="1" failures="1" errors="0" skipped="0" time="0.000" timestamp="2026-09-11T15:25:29" hostname="localhost">
+  <testsuite name="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" tests="1" failures="1" errors="0" skipped="0" time="4.993" timestamp="2026-09-11T15:25:29" hostname="localhost">
+    <properties>
+      <property name="device" value="39271FDJH008HQ" />
+    </properties>
+    <testcase name="testStaticAnalysisOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="4.993">
+      <failure>java.lang.AssertionError: Must detect SDKs
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.apksandbox.sandbox.HttpsInspectionIntegrationTest$testStaticAnalysisOnDevice$1.invokeSuspend(HttpsInspectionIntegrationTest.kt:1181)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(dex-id-87da4c772b4af6faaf54577a50496a2ef65eef6b:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(dex-id-87da4c772b4af6faaf54577a50496a2ef65eef6b:1)
+	at com.apksandbox.sandbox.HttpsInspectionIntegrationTest.testStaticAnalysisOnDevice(HttpsInspectionIntegrationTest.kt:1174)
+</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

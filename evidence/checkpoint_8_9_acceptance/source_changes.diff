@@ -1,0 +1,634 @@
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/domain/sandbox/SandboxSessionCoordinator.kt b/apk-scope/app/src/main/java/com/apksandbox/domain/sandbox/SandboxSessionCoordinator.kt
+index 4c7c3ca..ea22ef9 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/domain/sandbox/SandboxSessionCoordinator.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/domain/sandbox/SandboxSessionCoordinator.kt
+@@ -395,7 +395,13 @@ class DefaultSandboxSessionCoordinator(
+   val launcherApps = context.getSystemService(LauncherApps::class.java)
+   val installedInWork = workHandle != null && launcherApps != null && try {
+    launcherApps.getApplicationInfo(session.packageName, 0, workHandle) != null
+-  } catch (_: Exception) { false }
++  } catch (e: Exception) {
++   // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit)
++   android.util.Log.e("ReconcileDiag", "getApplicationInfo(pkg=${session.packageName}, workHandle=$workHandle) threw: ${e.javaClass.name}: ${e.message}", e)
++   false
++  }
++  // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit)
++  android.util.Log.i("ReconcileDiag", "reconcile session=${sessionId} state=${session.state} workHandle=$workHandle installedInWork=$installedInWork")
+ 
+   var next = session
+   when (session.state) {
+@@ -404,6 +410,8 @@ class DefaultSandboxSessionCoordinator(
+     if (installedInWork) {
+      next = safeTransition(session, SandboxSessionState.INSTALLED) ?: session
+      val readiness = SandboxEnvironmentPreflight.computeLaunchReadiness(context, next)
++     // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit)
++     android.util.Log.i("ReconcileDiag", "readiness after INSTALLED transition: installationConfirmed=${readiness.installationConfirmed} environmentValid=${readiness.environmentValid} requiredPoliciesSatisfied=${readiness.requiredPoliciesSatisfied} networkIsolationActive=${readiness.networkIsolationActive} launchAllowed=${readiness.launchAllowed} transitionSucceeded=${next.state}")
+      if (readiness.launchAllowed) next = safeTransition(next, SandboxSessionState.READY) ?: next
+     }
+    }
+@@ -771,14 +779,62 @@ class DefaultSandboxSessionCoordinator(
+   */
+  private suspend fun correlateUrlEvidenceWithAnalysis(analysisId: String, artifact: UrlEvidenceArtifact) {
+   try {
+-   // Checkpoint 8.9: UrlEvidenceArtifact is validated and accepted here.
+-   // Actual correlation with DexUrlCandidate entries is deferred to Milestone 8.10
+-   // once the analysis persistence model (AnalysisSessionEntity/AnalysisWithDetails) is fully mapped.
+-   // The artifact carries: sessionId, targetPackage, trafficTransactionId, requestUrl, method, statusCode, timestamp.
+-   // Future correlation will match URLs against DexUrlCandidate.originalString/host
+-   // and attach RuntimeEvidenceReference objects with UrlProvenance.RUNTIME_OBSERVED.
+-  } catch (_: Exception) {
+-   // Non-critical — validation already passed; no-op here
++   // Checkpoint 8.9: Correlate URL evidence with persisted DexUrlCandidate entries.
++   // The analysis lives in StaticAnalysisResultStore as ApkMetadata with embeddedUrls list.
++
++   val metadataOpt = com.apksandbox.domain.StaticAnalysisResultStore.get(analysisId)
++   if (metadataOpt == null) {
++    // No analysis found for this session — nothing to correlate with
++    android.util.Log.w("UrlEvidenceCorrelation", "No analysis found for $analysisId")
++    return
++   }
++
++   val metadata = metadataOpt
++   var updated = false
++
++   // For each URL evidence entry, find matching DexUrlCandidate and attach runtime evidence
++   val updatedUrls = metadata.embeddedUrls.map { candidate ->
++    if (candidate.runtimeEvidence != null) {
++     // Already has evidence, preserve it
++     candidate
++    } else {
++     // Try to find a matching evidence entry by URL
++     val matchingEntry = artifact.entries.firstOrNull { entry ->
++      // Match: candidate URL and entry URL are the same (both redacted at capture)
++      // OR entry URL contains the candidate host (broader match for redacted URLs)
++      entry.requestUrl == candidate.originalString ||
++      entry.requestUrl.contains(candidate.host, ignoreCase = true)
++     }
++
++     if (matchingEntry != null) {
++      updated = true
++      candidate.copy(
++       runtimeEvidence = com.apksandbox.core.staticanalysis.RuntimeEvidenceReference(
++        sessionId = analysisId,
++        transactionId = matchingEntry.trafficTransactionId,
++        url = matchingEntry.requestUrl,
++        timestamp = matchingEntry.timestampEpochMs,
++        method = matchingEntry.requestMethod,
++        statusCode = matchingEntry.responseStatusCode
++       ),
++       provenance = com.apksandbox.core.staticanalysis.UrlProvenance.RUNTIME_OBSERVED
++      )
++     } else {
++      candidate
++     }
++    }
++   }
++
++   // Persist updated analysis if any URLs were correlated
++   if (updated) {
++    val updatedMetadata = metadata.copy(embeddedUrls = updatedUrls)
++    com.apksandbox.domain.StaticAnalysisResultStore.put(analysisId, updatedMetadata)
++    android.util.Log.i("UrlEvidenceCorrelation", "Correlated ${artifact.exportedEntryCount} entries for $analysisId, updated ${updatedUrls.count { it.runtimeEvidence != null }} URLs")
++   } else {
++    android.util.Log.i("UrlEvidenceCorrelation", "Imported ${artifact.exportedEntryCount} entries for $analysisId but no URL matches found")
++   }
++  } catch (e: Exception) {
++   android.util.Log.e("UrlEvidenceCorrelation", "Failed to correlate URL evidence for $analysisId: ${e.message}", e)
+   }
+  }
+ 
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxVpnService.kt b/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxVpnService.kt
+index 49b1e4c..8fb966f 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxVpnService.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxVpnService.kt
+@@ -140,13 +140,20 @@ class SandboxVpnService : VpnService() {
+      if (packageName != null) {
+       com.apksandbox.core.network.https.HttpsInspectionConfig.targetPackage = packageName
+      }
++     // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit): enable the existing
++     // dormant per-connection lifecycle trace so a single request's actual path through
++     // TcpProxy/HttpsInspectionEngine can be observed via logcat tag "ConnDiag".
++     com.apksandbox.core.network.ConnDiag.enabled = true
+      val engine = ForwardingEngine(
+       this, builtTun, forwardingTunAddress,
+       limits = EngineLimits.DEFAULT,
+       localSubnets = localSubnets,
+       observationSink = fanOut,
+       caStorageDir = java.io.File(filesDir, "poc_ca"),
+-     ) { _, _, _ -> }
++      onEvidenceCb = { _, _, _ -> },
++      sessionId = sessionId,
++      targetPackage = packageName
++     )
+      forwarding = engine
+      engine.start()
+      isForwardingActive = true
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxWorkQueryActivity.kt b/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxWorkQueryActivity.kt
+index c4a9bb5..e77d9d6 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxWorkQueryActivity.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/sandbox/SandboxWorkQueryActivity.kt
+@@ -419,7 +419,8 @@ class SandboxWorkQueryActivity : Activity() {
+   private suspend fun exportUrlEvidence(sessionId: String): JSONObject {
+    val storedPackage = WorkEvidenceStore(this).getPackageName(sessionId)
+    val targetPackage = storedPackage.orEmpty()
+-   val allRecords = TrafficInspectionStore.all()
++   // Only export records from this specific session and target package
++   val sessionRecords = TrafficInspectionStore.forSession(sessionId, targetPackage)
+ 
+    val entries = ArrayList<UrlEvidenceEntry>()
+    var truncated = false
+@@ -430,7 +431,7 @@ class SandboxWorkQueryActivity : Activity() {
+    var approxBytes = 0L
+    val now = System.currentTimeMillis()
+ 
+-   for (record in allRecords) {
++   for (record in sessionRecords) {
+     if (entries.size >= UrlEvidenceArtifact.MAX_ENTRIES) {
+      truncated = true
+      break
+@@ -442,11 +443,11 @@ class SandboxWorkQueryActivity : Activity() {
+      analysisSessionId = sessionId,
+      analysisTargetPackage = targetPackage,
+      trafficTransactionId = record.id,
+-     trafficSequence = record.sequence,
++     trafficSequence = entries.size.toLong(),  // Sequential numbering within this artifact
+      requestUrl = record.url,  // Already sanitized/redacted by TrafficInspectionStore
+      requestMethod = record.method?.takeIf { it.isNotEmpty() },
+      responseStatusCode = record.statusCode,
+-     timestampEpochMs = record.captureTimeEpochMs,
++     timestampEpochMs = record.timestamp.toEpochMilli(),
+      captureStatus = if (record.isTruncated) "TRUNCATED" else "COMPLETE"
+     )
+ 
+@@ -464,12 +465,12 @@ class SandboxWorkQueryActivity : Activity() {
+     schemaVersion = UrlEvidenceArtifact.SCHEMA_VERSION,
+     analysisSessionId = sessionId,
+     analysisTargetPackage = targetPackage,
+-    capturedAtEpochMs = allRecords.minOfOrNull { it.captureTimeEpochMs } ?: now,
++    capturedAtEpochMs = sessionRecords.minOfOrNull { it.timestamp.toEpochMilli() } ?: now,
+     exportedAtEpochMs = now,
+     entries = entries,
+     truncated = truncated,
+     exportedEntryCount = entries.size,
+-    totalEntryCount = allRecords.size,
++    totalEntryCount = sessionRecords.size,
+    )
+    return artifact.toJson()
+   }
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/spike/GateVpnService.kt b/apk-scope/app/src/main/java/com/apksandbox/spike/GateVpnService.kt
+index db45829..7ee4e40 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/spike/GateVpnService.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/spike/GateVpnService.kt
+@@ -77,7 +77,11 @@ class GateVpnService:VpnService() {
+       limits=EngineLimits.DEFAULT,
+       localSubnets=localSubnets,
+       observationSink=networkObservationLog,
+-     ) { test,result,detail -> Evidence.record(this,test,result,detail) }
++      caStorageDir=null,
++      onEvidenceCb={ test,result,detail -> Evidence.record(this,test,result,detail) },
++      sessionId=null,
++      targetPackage=null
++     )
+      forwarding=engine
+      Evidence.record(this,"VpnService.establish","PASS","uid=${android.os.Process.myUid()}; forwarding enabled (Spike B)")
+      engine.start()
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkEntryScreen.kt b/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkEntryScreen.kt
+index 0ca4f44..bd586ee 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkEntryScreen.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkEntryScreen.kt
+@@ -83,7 +83,11 @@ fun WorkEntryScreen(modifier: Modifier = Modifier) {
+     sessionId = currentSessionId,
+     packageName = packageName.orEmpty(),
+     onBack = {},
+-    onOpenHttpsInspection = { showHttpsInspection = true },
++    onOpenHttpsInspection = {
++     // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit)
++     android.util.Log.i("LiveMonitorNav", "onOpenHttpsInspection invoked, setting showHttpsInspection=true")
++     showHttpsInspection = true
++    },
+     modifier = modifier
+    )
+   } else {
+diff --git a/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkLiveMonitorScreen.kt b/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkLiveMonitorScreen.kt
+index fe89f02..f3a76d5 100644
+--- a/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkLiveMonitorScreen.kt
++++ b/apk-scope/app/src/main/java/com/apksandbox/ui/screens/workmonitor/WorkLiveMonitorScreen.kt
+@@ -3,6 +3,8 @@ package com.apksandbox.ui.screens.workmonitor
+ import android.app.Application
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
++import androidx.compose.foundation.gestures.detectTapGestures
++import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -85,59 +87,27 @@ fun WorkLiveMonitorScreen(
+  Scaffold(
+   modifier = modifier,
+   topBar = { AppTopBar(title = "Live Monitor", eyebrow = "SANDBOX", onBack = onBack) },
+-  bottomBar = {
+-   Surface(
+-    modifier = Modifier.fillMaxWidth(),
+-    color = MaterialTheme.colorScheme.background,
+-    tonalElevation = 6.dp,
+-   ) {
+-    Column(
+-     modifier = Modifier
+-      .fillMaxWidth()
+-      .navigationBarsPadding()
+-      .padding(horizontal = Spacing.base, vertical = Spacing.sm)
+-    ) {
+-     PrimaryActionButton(
+-      text = "Return to Personal Profile",
+-      icon = Icons.Filled.Person,
+-      onClick = { com.apksandbox.sandbox.SandboxProfileSwitcher.returnToPersonalProfile(context) },
+-     )
+-    }
+-   }
+-  },
++  // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit): bottomBar removed to test
++  // whether its presence is what makes every interactive element in the content slot below stop
++  // receiving touches (confirmed on-device: this screen's own row/filter-chip clicks never fire, and
++  // no exception/log ever appears, while NoActiveSessionScreen — same Activity, same general
++  // structure, but no bottomBar — responds normally). If content becomes clickable with bottomBar
++  // removed, that isolates the cause to Scaffold's content-padding/insets interaction with bottomBar
++  // on this build, not to any of the individual composables here.
+  ) { padding ->
+   Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = Spacing.base, vertical = Spacing.xs), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
++   // TEMP DIAGNOSTIC (Checkpoint 8.9 acceptance scenario — not for commit): fully static test button,
++   // first element in the content Column, zero dynamic reads, to isolate whether ANY click inside
++   // this Scaffold's content slot fires at all versus specifically a state-driven recomposition issue.
++   PrimaryActionButton(
++    text = "STATIC TEST BUTTON",
++    icon = Icons.Filled.Shield,
++    onClick = {
++     android.util.Log.i("LiveMonitorNav", "STATIC TEST BUTTON clicked")
++     onOpenHttpsInspection()
++    },
++   )
+    SessionStatusBanner(state.durationLabel)
+-   Row(
+-    modifier = Modifier
+-     .fillMaxWidth()
+-     .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(com.apksandbox.ui.theme.Radii.md))
+-     .clickable { onOpenHttpsInspection() }
+-     .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+-    horizontalArrangement = Arrangement.SpaceBetween,
+-    verticalAlignment = Alignment.CenterVertically
+-   ) {
+-    Row(verticalAlignment = Alignment.CenterVertically) {
+-     Icon(Icons.Filled.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+-     androidx.compose.foundation.layout.Spacer(Modifier.width(Spacing.xs))
+-     Text("Traffic Inspector", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+-    }
+-    Row(verticalAlignment = Alignment.CenterVertically) {
+-     val txCount = com.apksandbox.core.network.traffic.TrafficInspectionStore.all().size
+-     if (txCount > 0) {
+-      Text(
+-       text = "$txCount captured",
+-       style = com.apksandbox.ui.theme.MonoCodeStyle.copy(fontSize = 11.sp),
+-       color = MaterialTheme.colorScheme.primary
+-      )
+-      androidx.compose.foundation.layout.Spacer(Modifier.width(Spacing.xs))
+-     }
+-     com.apksandbox.ui.components.Badge(
+-      text = if (com.apksandbox.core.network.https.HttpsInspectionConfig.isEnabled) "ACTIVE" else "OFF",
+-      color = if (com.apksandbox.core.network.https.HttpsInspectionConfig.isEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+-     )
+-    }
+-   }
+    AppIdentityCard(state.packageName)
+    MetricsRow(state)
+    FilterChipsRow(state.selectedFilter, state.feed, onSelect = viewModel::selectFilter)
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/ForwardingEngine.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/ForwardingEngine.kt
+index 13b9322..7f0a909 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/ForwardingEngine.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/ForwardingEngine.kt
+@@ -39,7 +39,9 @@ class ForwardingEngine(
+  override val localSubnets: List<DestinationPolicy.LocalSubnet> = emptyList(),
+  private val observationSink: NetworkObservationSink = NetworkObservationSink {},
+  private val caStorageDir: java.io.File? = null,
+- private val onEvidenceCb: (test: String, result: String, detail: String) -> Unit
++ private val onEvidenceCb: (test: String, result: String, detail: String) -> Unit,
++ private val sessionId: String? = null,
++ private val targetPackage: String? = null
+ ) : TunSink {
+ 
+  private val input = FileInputStream(tunFd.fileDescriptor)
+@@ -49,7 +51,7 @@ class ForwardingEngine(
+  private val udpNat = UdpNat(this)
+  private val tcpProxy = TcpProxy(this)
+  private val caManager = caStorageDir?.let { com.apksandbox.core.network.https.CaManager(it) }
+- private val httpsEngine = caManager?.let { com.apksandbox.core.network.https.HttpsInspectionEngine(this, it) }
++ private val httpsEngine = caManager?.let { com.apksandbox.core.network.https.HttpsInspectionEngine(this, it, sessionId, targetPackage) }
+ 
+  override val httpsInspectionPort: Int?
+   get() = if (com.apksandbox.core.network.https.HttpsInspectionConfig.isEnabled) httpsEngine?.boundPort else null
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/TcpProxy.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/TcpProxy.kt
+index 93fc18e..8d91580 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/TcpProxy.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/TcpProxy.kt
+@@ -82,7 +82,9 @@ class TcpProxy(private val sink: TunSink) {
+    val accumulated = initialPayloadAccumulator.toByteArray()
+    val sni = com.apksandbox.core.network.https.TlsClientHelloParser.extractSni(accumulated)
+    val complete = com.apksandbox.core.network.https.TlsClientHelloParser.isRecordComplete(accumulated)
+-   if (sni != null || complete || accumulated.size >= 16384 || (newPayload == null && accumulated.isNotEmpty())) {
++   val willSend = sni != null || complete || accumulated.size >= 16384 || (newPayload == null && accumulated.isNotEmpty())
++   ConnDiag.event(connId, "TRY_SEND_PREAMBLE", "newPayloadBytes=${newPayload?.size ?: -1} accumulatedBytes=${accumulated.size} sniFound=${sni != null} recordComplete=$complete willSend=$willSend")
++   if (willSend) {
+     sendPreamble(sni)
+    }
+   }
+@@ -90,6 +92,7 @@ class TcpProxy(private val sink: TunSink) {
+   fun sendPreamble(sni: String? = null) {
+    if (!isInspected || preambleSent) return
+    preambleSent = true
++   ConnDiag.event(connId, "PREAMBLE_SENT", "sni=${sni ?: "(none)"} accumulatedBytes=${initialPayloadAccumulator.size()} inspectionPort=${sink.httpsInspectionPort}")
+    val token = sink.httpsInspectionAuthToken ?: ByteArray(16)
+    val sniBytes = sni?.toByteArray(Charsets.UTF_8) ?: EMPTY
+    val buf = ByteBuffer.allocate(16 + 4 + 2 + 2 + sniBytes.size)
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/https/HttpsInspectionEngine.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/https/HttpsInspectionEngine.kt
+index 2460c59..bdfc69d 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/https/HttpsInspectionEngine.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/https/HttpsInspectionEngine.kt
+@@ -52,7 +52,9 @@ import javax.net.ssl.SSLSocketFactory
+  */
+ class HttpsInspectionEngine(
+     private val sink: TunSink,
+-    private val caManager: CaManager
++    private val caManager: CaManager,
++    private val sessionId: String? = null,
++    private val targetPackage: String? = null
+ ) {
+ 
+     private var serverSocket: ServerSocket? = null
+@@ -155,9 +157,11 @@ class HttpsInspectionEngine(
+         } else null
+ 
+         val targetHost = sniHost ?: remoteIpStr
++        android.util.Log.i("TrafficEngine", "PREAMBLE_RECEIVED host=$targetHost port=$remotePort sniPresent=${sniHost != null}")
+ 
+         // 2. Validate destination policy
+         val policy = DestinationPolicy.evaluate(DestinationPolicy.Destination.V4(remoteIpBytes), sink.localSubnets)
++        android.util.Log.i("TrafficEngine", "POLICY_DECISION host=$targetHost verdict=${policy.verdict} reason=${policy.reason}")
+         if (policy.verdict == DestinationPolicy.Verdict.DENY) {
+             sink.onEvidence("TrafficInspection.policy", "DENIED", "dst=$remoteIpStr:$remotePort reason=${policy.reason}")
+             HttpsInspectionStore.record(
+@@ -192,9 +196,28 @@ class HttpsInspectionEngine(
+         // no exception, no partial-write signal, the peer just never saw it). A plain Socket does not
+         // reproduce this; every HTTP/2 relay integration test that sends a request body depends on it.
+         val socket = Socket()
++        // DIAGNOSED (Checkpoint 8.9 acceptance scenario): VpnService.protect(Socket) was observed to
++        // return false 100% of the time for a bare `Socket()` here, while TcpProxy's SocketChannel-backed
++        // sockets protect successfully every time on the same VpnService instance in the same session
++        // (see ConnDiag PROTECT_RESULT events). A newly constructed java.net.Socket() has no live
++        // underlying file descriptor until it is bound or connected — protect() has nothing to attach to
++        // and silently fails. Binding to an ephemeral local port first forces real fd creation without
++        // changing this from a blocking Socket (preserving the HTTP/2 POST-body fix documented above).
++        socket.bind(InetSocketAddress(0))
+         val protected = sink.protectSocket(socket)
+         if (!protected) {
+-            android.util.Log.w("TrafficEngine", "VpnService.protect returned false on upstream socket: $socket")
++            // Fail closed: an unprotected "upstream" socket is not actually excluded from this VPN's own
++            // TUN routing, so traffic sent on it loops back into TcpProxy as a new inbound connection to
++            // the same destination instead of ever reaching the real network (see the self-loop analysis
++            // above) — silently returning it here previously let every caller proceed as if a genuine
++            // upstream connection existed, until the caller's own read/write eventually timed out with no
++            // diagnostic pointing at the real cause. Close it immediately and surface a real, typed
++            // exception instead, so every call site's existing exception handling (which already records
++            // TLS_HANDSHAKE_FAILED / ENCRYPTED / TCP_PASSTHROUGH failures to the inspection stores) reports
++            // this as what it is rather than a generic downstream timeout.
++            android.util.Log.e("TrafficEngine", "VpnService.protect returned false on upstream socket: $socket — closing, refusing to relay unprotected")
++            try { socket.close() } catch (_: Exception) {}
++            throw java.io.IOException("VpnService.protect() failed for upstream socket — refusing to forward traffic outside VPN protection")
+         }
+         return socket
+     }
+@@ -239,6 +262,7 @@ class HttpsInspectionEngine(
+         sniHost: String?
+     ) {
+         val isTarget = HttpsInspectionConfig.isEnabled && HttpsInspectionConfig.isTargetDestination(targetHost)
++        android.util.Log.i("TrafficEngine", "TLS_ROUTE_DECISION host=$targetHost isEnabled=${HttpsInspectionConfig.isEnabled} isTarget=$isTarget -> ${if (isTarget) "DECRYPT" else "RAW_TUNNEL"}")
+         if (!isTarget) {
+             tunnelRawUpstream(clientIn, clientOut, remoteIpBytes, remotePort, targetHost)
+             return
+@@ -264,7 +288,9 @@ class HttpsInspectionEngine(
+                 }
+             } catch (_: Exception) {}
+ 
++            android.util.Log.i("TrafficEngine", "UPSTREAM_CONNECT_ATTEMPT host=$targetHost port=$remotePort")
+             sslSock.startHandshake()
++            android.util.Log.i("TrafficEngine", "UPSTREAM_TLS_HANDSHAKE_OK host=$targetHost cipherSuite=${sslSock.session.cipherSuite} protocol=${sslSock.session.protocol}")
+ 
+             // Hostname verification
+             val verifier = HttpsURLConnection.getDefaultHostnameVerifier()
+@@ -273,6 +299,7 @@ class HttpsInspectionEngine(
+             }
+             upstreamSsl = sslSock
+             val upstreamProto = try { sslSock.applicationProtocol } catch (_: Exception) { null }
++            android.util.Log.i("TrafficEngine", "UPSTREAM_ALPN host=$targetHost negotiated=${upstreamProto ?: "(none)"}")
+ 
+             // Downstream TLS Connection directly using native clientSocket
+             val serverContext = caManager.getOrCreateServerSslContext(targetHost)
+@@ -288,11 +315,14 @@ class HttpsInspectionEngine(
+                 }
+             } catch (_: Exception) {}
+ 
++            android.util.Log.i("TrafficEngine", "DOWNSTREAM_HANDSHAKE_ATTEMPT host=$targetHost offeredAlpn=${cSsl.sslParameters.applicationProtocols?.joinToString(",")}")
+             try {
+                 cSsl.startHandshake()
++                android.util.Log.i("TrafficEngine", "DOWNSTREAM_TLS_HANDSHAKE_OK host=$targetHost cipherSuite=${cSsl.session.cipherSuite}")
+             } catch (e: Exception) {
+                 val duration = System.currentTimeMillis() - startTime
+                 val reason = "Target app rejected inspection certificate: ${e.javaClass.simpleName}: ${e.message}"
++                android.util.Log.w("TrafficEngine", "DOWNSTREAM_TLS_HANDSHAKE_FAILED host=$targetHost reason=$reason durationMs=$duration")
+                 HttpsInspectionStore.record(
+                     HttpsTransaction(
+                         method = "CONNECT",
+@@ -308,6 +338,7 @@ class HttpsInspectionEngine(
+             }
+             clientSsl = cSsl
+             val downstreamProto = try { cSsl.applicationProtocol } catch (_: Exception) { null }
++            android.util.Log.i("TrafficEngine", "DOWNSTREAM_ALPN host=$targetHost negotiated=${downstreamProto ?: "(none)"} upstreamProto=${upstreamProto ?: "(none)"} relayPath=${if (downstreamProto == "h2" && upstreamProto == "h2") "HTTP2_RELAY" else "HTTP11_RELAY"}")
+ 
+             if (downstreamProto == "h2" && upstreamProto == "h2") {
+                 Http2RelayHandler(
+@@ -317,7 +348,9 @@ class HttpsInspectionEngine(
+                     upstreamOut = upstreamSsl.outputStream,
+                     host = targetHost,
+                     port = remotePort,
+-                    isTls = true
++                    isTls = true,
++                    sessionId = sessionId,
++                    targetPackage = targetPackage
+                 ).relay()
+             } else {
+                 if (upstreamProto == "h2") {
+@@ -367,6 +400,7 @@ class HttpsInspectionEngine(
+             } else {
+                 HttpsCaptureState.ENCRYPTED
+             }
++            android.util.Log.w("TrafficEngine", "TLS_CLIENT_STAGE_EXCEPTION host=$targetHost durationMs=$duration exception=${e.javaClass.simpleName}: ${e.message}")
+             HttpsInspectionStore.record(
+                 HttpsTransaction(
+                     method = "CONNECT",
+@@ -389,7 +423,24 @@ class HttpsInspectionEngine(
+     }
+ 
+     private fun tunnelRawUpstream(clientIn: InputStream, clientOut: OutputStream, remoteIp: ByteArray, remotePort: Int, host: String) {
+-        val upstream = createProtectedUpstreamSocket()
++        val upstream = try {
++            createProtectedUpstreamSocket()
++        } catch (e: Exception) {
++            // Socket creation itself (protect() failure) happens before the try block below starts —
++            // without this, that specific failure would propagate uncaught out of this function instead
++            // of being recorded like every other failure path here.
++            HttpsInspectionStore.record(
++                HttpsTransaction(
++                    method = "TCP_PASSTHROUGH",
++                    url = "https://$host:$remotePort",
++                    host = host,
++                    port = remotePort,
++                    state = HttpsCaptureState.ENCRYPTED,
++                    failureDetails = "Passthrough failed: ${e.javaClass.simpleName}: ${e.message}"
++                )
++            )
++            return
++        }
+         activeSockets.add(upstream)
+         try {
+             upstream.connect(InetSocketAddress(InetAddress.getByAddress(remoteIp), remotePort), 10000)
+@@ -454,6 +505,7 @@ class HttpsInspectionEngine(
+         val cIn = BufferedInputStream(clientIn)
+         val uIn = BufferedInputStream(upstreamIn)
+         val validMethods = setOf("GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "CONNECT", "TRACE")
++        android.util.Log.i("TrafficEngine", "HTTP11_RELAY_ENTERED host=$host port=$port isTls=$isTls")
+ 
+         while (true) {
+             val start = System.currentTimeMillis()
+@@ -520,6 +572,7 @@ class HttpsInspectionEngine(
+             val reqBodyBytes = readBody(cIn, reqContentLength, isReqChunked)
+ 
+             // Write Request to Upstream
++            android.util.Log.i("TrafficEngine", "HTTP11_REQUEST_FORWARDED host=$host method=$method path=$path bodyBytes=${reqBodyBytes.size}")
+             upstreamOut.write(reqRawHeaders.toString().toByteArray(Charsets.ISO_8859_1))
+             if (reqBodyBytes.isNotEmpty()) {
+                 upstreamOut.write(reqBodyBytes)
+@@ -528,6 +581,7 @@ class HttpsInspectionEngine(
+ 
+             // Read Response Status Line
+             var respLine = readLineOrNull(uIn) ?: break
++            android.util.Log.i("TrafficEngine", "HTTP11_RESPONSE_LINE_RECEIVED host=$host line=$respLine")
+             var respParts = respLine.split(" ")
+             var statusCode = if (respParts.size > 1) respParts[1].toIntOrNull() else 200
+ 
+@@ -705,6 +759,7 @@ class HttpsInspectionEngine(
+ 
+             val txId = java.util.UUID.randomUUID().toString()
+             val proto = if (isTls) TrafficProtocol.HTTPS else TrafficProtocol.HTTP
++            android.util.Log.i("TrafficEngine", "CAPTURE_STORE_INSERT txId=$txId host=$host method=$method statusCode=$statusCode protocol=$proto reqBodyBytes=${reqBodyBytes.size} respBodyBytes=${respBodyBytes.size}")
+ 
+             // Record in unified TrafficInspectionStore
+             TrafficInspectionStore.record(
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2FrameParser.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2FrameParser.kt
+index 983a62d..b62cd52 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2FrameParser.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2FrameParser.kt
+@@ -89,7 +89,7 @@ class Http2StreamTracker(
+         }
+     }
+ 
+-    fun toTrafficRecord(defaultHost: String, defaultPort: Int, isTls: Boolean): TrafficRecord {
++    fun toTrafficRecord(defaultHost: String, defaultPort: Int, isTls: Boolean, sessionId: String? = null, targetPackage: String? = null): TrafficRecord {
+         val effectiveHost = authority?.substringBefore(':') ?: defaultHost
+         val effectivePort = authority?.substringAfter(':', "")?.toIntOrNull() ?: defaultPort
+         val effectiveScheme = scheme ?: if (isTls) "https" else "http"
+@@ -149,6 +149,8 @@ class Http2StreamTracker(
+ 
+         return TrafficRecord(
+             id = recordId,
++            sessionId = sessionId,
++            targetPackage = targetPackage,
+             timestamp = Instant.ofEpochMilli(startTime),
+             protocol = protocol,
+             host = effectiveHost,
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2RelayHandler.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2RelayHandler.kt
+index 8427456..1e6f488 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2RelayHandler.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/Http2RelayHandler.kt
+@@ -39,6 +39,8 @@ class Http2RelayHandler(
+     private val host: String,
+     private val port: Int,
+     private val isTls: Boolean,
++    private val sessionId: String? = null,
++    private val targetPackage: String? = null,
+     private val onTrafficRecorded: (TrafficRecord) -> Unit = { TrafficInspectionStore.record(it) }
+ ) {
+     private val isRunning = AtomicBoolean(true)
+@@ -46,6 +48,7 @@ class Http2RelayHandler(
+     private val completionLatch = CountDownLatch(2)
+ 
+     fun relay() {
++        android.util.Log.i("Http2Relay", "HTTP2_RELAY_ENTERED host=$host port=$port sessionId=$sessionId targetPackage=$targetPackage")
+         val downstreamSource = downstreamIn.source().buffer()
+         val downstreamSink = downstreamOut.sink().buffer()
+         val upstreamSource = upstreamIn.source().buffer()
+@@ -113,7 +116,7 @@ class Http2RelayHandler(
+                                     isGzipEncoding = isGzip
+                                 ) { msg ->
+                                     synchronized(tracker.grpcMessages) { tracker.grpcMessages.add(msg) }
+-                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls))
++                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls, sessionId, targetPackage))
+                                 }
+                             }
+                         }
+@@ -248,7 +251,7 @@ class Http2RelayHandler(
+                                     isGzipEncoding = isGzip
+                                 ) { msg ->
+                                     synchronized(tracker.grpcMessages) { tracker.grpcMessages.add(msg) }
+-                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls))
++                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls, sessionId, targetPackage))
+                                 }
+                             }
+ 
+@@ -256,7 +259,7 @@ class Http2RelayHandler(
+                                 tracker.isSse = true
+                                 tracker.sseParser = SseEventParser { event ->
+                                     synchronized(tracker.sseEvents) { tracker.sseEvents.add(event) }
+-                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls))
++                                    onTrafficRecorded(tracker.toTrafficRecord(host, port, isTls, sessionId, targetPackage))
+                                 }
+                             }
+ 
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficInspectionStore.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficInspectionStore.kt
+index cd024ea..5076062 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficInspectionStore.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficInspectionStore.kt
+@@ -116,6 +116,15 @@ object TrafficInspectionStore {
+         ArrayList(records)
+     }
+ 
++    /**
++     * Get records for a specific session and target package only.
++     * Enforces session/target isolation for evidence export.
++     */
++    fun forSession(sessionId: String?, targetPackage: String?): List<TrafficRecord> = synchronized(records) {
++        if (sessionId == null) return emptyList()
++        ArrayList(records.filter { it.sessionId == sessionId && it.targetPackage == targetPackage })
++    }
++
+     fun clear() {
+         synchronized(records) {
+             records.clear()
+diff --git a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficRecord.kt b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficRecord.kt
+index f84fd4e..a47d06c 100644
+--- a/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficRecord.kt
++++ b/apk-scope/core/network/src/main/kotlin/com/apksandbox/core/network/traffic/TrafficRecord.kt
+@@ -41,6 +41,7 @@ enum class TrafficCaptureState {
+ data class TrafficRecord(
+     val id: String = java.util.UUID.randomUUID().toString(),
+     val sessionId: String? = null,
++    val targetPackage: String? = null,
+     val timestamp: Instant = Instant.now(),
+     val protocol: TrafficProtocol = TrafficProtocol.HTTP,
+     val host: String = "",

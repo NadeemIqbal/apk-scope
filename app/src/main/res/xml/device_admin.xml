@@ -1,0 +1,1 @@
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android"><uses-policies><wipe-data/><disable-camera/></uses-policies></device-admin>

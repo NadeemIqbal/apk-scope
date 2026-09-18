@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.https.CaManagerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-12T02:58:51.503Z" hostname="NextGenis-MacBook-Pro-3.local" time="1.568">
+  <properties/>
+  <testcase name="testResetRemovesKeysAndCertificates" classname="com.apksandbox.core.network.https.CaManagerTest" time="0.228"/>
+  <testcase name="testLeafCertificateGenerationForHostname" classname="com.apksandbox.core.network.https.CaManagerTest" time="1.203"/>
+  <testcase name="testCaGenerationAndBasicConstraints" classname="com.apksandbox.core.network.https.CaManagerTest" time="0.137"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

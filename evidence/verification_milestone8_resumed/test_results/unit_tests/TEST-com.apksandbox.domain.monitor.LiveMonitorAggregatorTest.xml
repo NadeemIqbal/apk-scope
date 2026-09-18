@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:06:54.026Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.015">
+  <properties/>
+  <testcase name="resourceLimitExceededIsAFactualWarning" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.005"/>
+  <testcase name="policyDeniedFailureIsBlockedNeverCalledMalicious" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.003"/>
+  <testcase name="openConnectionWithNoCloseYetReportsZeroBytesNotOpen" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.001"/>
+  <testcase name="connectionWithPrecedingDnsGetsRealAssociatedHostname" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.003"/>
+  <testcase name="rawIpConnectionNeverAcquiresFabricatedHostname" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.001"/>
+  <testcase name="dnsResponseBecomesOneFeedEntryWithResolvedAddress" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.0"/>
+  <testcase name="pendingDnsQueryWithNoResponseStillAppearsInFeed" classname="com.apksandbox.domain.monitor.LiveMonitorAggregatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

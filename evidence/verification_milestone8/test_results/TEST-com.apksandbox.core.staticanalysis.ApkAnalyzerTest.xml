@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.staticanalysis.ApkAnalyzerTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-11T15:29:18.080Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.012">
+  <properties/>
+  <testcase name="sha256MatchesKnownVector" classname="com.apksandbox.core.staticanalysis.ApkAnalyzerTest" time="0.009"/>
+  <testcase name="sha256OfEmptyFileMatchesKnownVector" classname="com.apksandbox.core.staticanalysis.ApkAnalyzerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

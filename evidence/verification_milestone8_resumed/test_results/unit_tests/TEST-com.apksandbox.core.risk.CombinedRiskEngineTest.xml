@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.risk.CombinedRiskEngineTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-11T16:56:33.899Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.016">
+  <properties/>
+  <testcase name="accessibilityAndOverlayWithNetworkActivityTriggersHigherWeightedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.012"/>
+  <testcase name="smsWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.001"/>
+  <testcase name="contactsWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="sensitiveCapabilitiesWithPrivateNetworkAccessAttemptTriggersHighRiskFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.002"/>
+  <testcase name="accessibilityWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="installPackagesWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="staticOnlyWithoutRuntimeProducesNoCombinedFindings" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="bootPersistenceWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="locationWithNetworkActivityTriggersCombinedFinding" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="evaluationIsDeterministic" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <testcase name="runtimeWithoutMatchingStaticCapabilitiesProducesNoCombinedFindings" classname="com.apksandbox.core.risk.CombinedRiskEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

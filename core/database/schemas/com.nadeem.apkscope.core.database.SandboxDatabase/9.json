@@ -1,0 +1,1559 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 9,
+    "identityHash": "54c15bfb8b2933a7b4eef95d848223bb",
+    "entities": [
+      {
+        "tableName": "sandbox_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `analysisId` TEXT NOT NULL, `packageName` TEXT NOT NULL, `state` TEXT NOT NULL, `policyDenyCamera` INTEGER NOT NULL, `policyDenyMicrophone` INTEGER NOT NULL, `policyDenyLocation` INTEGER NOT NULL, `policyAlwaysOnVpnLockdown` INTEGER NOT NULL, `policyDisposableSession` INTEGER NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `startedAtEpochMs` INTEGER, `endedAtEpochMs` INTEGER, `errorCode` TEXT, `errorUserMessage` TEXT, `errorTechnicalDetail` TEXT, `errorRecoverability` TEXT, `personalApkPath` TEXT, `installSessionId` INTEGER, `installedVersionCode` INTEGER, `dataClearRequestedAtEpochMs` INTEGER, `dataClearCompletedAtEpochMs` INTEGER, `dataClearResult` INTEGER, `cleanupAppDataCleared` INTEGER, `cleanupApkRemoved` INTEGER, `cleanupWorkTempApkDeleted` INTEGER, `cleanupPersonalTempApkDeleted` INTEGER, `cleanupUriGrantReleased` INTEGER, `cleanupNetworkSessionClosed` INTEGER, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisId",
+            "columnName": "analysisId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policyDenyCamera",
+            "columnName": "policyDenyCamera",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policyDenyMicrophone",
+            "columnName": "policyDenyMicrophone",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policyDenyLocation",
+            "columnName": "policyDenyLocation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policyAlwaysOnVpnLockdown",
+            "columnName": "policyAlwaysOnVpnLockdown",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policyDisposableSession",
+            "columnName": "policyDisposableSession",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMs",
+            "columnName": "startedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endedAtEpochMs",
+            "columnName": "endedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "errorCode",
+            "columnName": "errorCode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorUserMessage",
+            "columnName": "errorUserMessage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorTechnicalDetail",
+            "columnName": "errorTechnicalDetail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorRecoverability",
+            "columnName": "errorRecoverability",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "personalApkPath",
+            "columnName": "personalApkPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "installSessionId",
+            "columnName": "installSessionId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "installedVersionCode",
+            "columnName": "installedVersionCode",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dataClearRequestedAtEpochMs",
+            "columnName": "dataClearRequestedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dataClearCompletedAtEpochMs",
+            "columnName": "dataClearCompletedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dataClearResult",
+            "columnName": "dataClearResult",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupAppDataCleared",
+            "columnName": "cleanupAppDataCleared",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupApkRemoved",
+            "columnName": "cleanupApkRemoved",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupWorkTempApkDeleted",
+            "columnName": "cleanupWorkTempApkDeleted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupPersonalTempApkDeleted",
+            "columnName": "cleanupPersonalTempApkDeleted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupUriGrantReleased",
+            "columnName": "cleanupUriGrantReleased",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupNetworkSessionClosed",
+            "columnName": "cleanupNetworkSessionClosed",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      },
+      {
+        "tableName": "sandbox_policy_enforcements",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `policy` TEXT NOT NULL, `status` TEXT NOT NULL, `mechanism` TEXT, `message` TEXT, FOREIGN KEY(`sessionId`) REFERENCES `sandbox_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policy",
+            "columnName": "policy",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mechanism",
+            "columnName": "mechanism",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sandbox_policy_enforcements_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sandbox_policy_enforcements_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sandbox_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "network_observations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `timestampEpochMs` INTEGER NOT NULL, `type` TEXT NOT NULL, `protocol` TEXT, `destinationIp` TEXT, `destinationPort` INTEGER, `connectionId` INTEGER, `startTimeEpochMs` INTEGER, `endTimeEpochMs` INTEGER, `uploadedBytes` INTEGER, `downloadedBytes` INTEGER, `failureReason` TEXT, `failureDetail` TEXT, `hostname` TEXT, `resolvedAddressesCsv` TEXT, `transactionId` INTEGER, `sourcePort` INTEGER, `limitName` TEXT, `currentValue` INTEGER, `limitValue` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampEpochMs",
+            "columnName": "timestampEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocol",
+            "columnName": "protocol",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "destinationIp",
+            "columnName": "destinationIp",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "destinationPort",
+            "columnName": "destinationPort",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "startTimeEpochMs",
+            "columnName": "startTimeEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endTimeEpochMs",
+            "columnName": "endTimeEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "uploadedBytes",
+            "columnName": "uploadedBytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "downloadedBytes",
+            "columnName": "downloadedBytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "failureReason",
+            "columnName": "failureReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "failureDetail",
+            "columnName": "failureDetail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hostname",
+            "columnName": "hostname",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolvedAddressesCsv",
+            "columnName": "resolvedAddressesCsv",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transactionId",
+            "columnName": "transactionId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sourcePort",
+            "columnName": "sourcePort",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "limitName",
+            "columnName": "limitName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "currentValue",
+            "columnName": "currentValue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "limitValue",
+            "columnName": "limitValue",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_network_observations_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_network_observations_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_network_observations_sessionId_sequence",
+            "unique": true,
+            "columnNames": [
+              "sessionId",
+              "sequence"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_network_observations_sessionId_sequence` ON `${TABLE_NAME}` (`sessionId`, `sequence`)"
+          },
+          {
+            "name": "index_network_observations_sessionId_type",
+            "unique": false,
+            "columnNames": [
+              "sessionId",
+              "type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_network_observations_sessionId_type` ON `${TABLE_NAME}` (`sessionId`, `type`)"
+          }
+        ]
+      },
+      {
+        "tableName": "runtime_observation_summaries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `startedAtEpochMs` INTEGER NOT NULL, `endedAtEpochMs` INTEGER NOT NULL, `connectionCount` INTEGER NOT NULL, `dnsQueryCount` INTEGER NOT NULL, `uniqueObservedDomains` INTEGER NOT NULL, `uploadedBytes` INTEGER NOT NULL, `downloadedBytes` INTEGER NOT NULL, `blockedConnectionCount` INTEGER NOT NULL, `failedConnectionCount` INTEGER NOT NULL, `droppedObservationCount` INTEGER NOT NULL, `schemaVersion` INTEGER NOT NULL, `truncated` INTEGER NOT NULL, `exportedObservationCount` INTEGER NOT NULL, `totalObservationCount` INTEGER NOT NULL, `importedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMs",
+            "columnName": "startedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAtEpochMs",
+            "columnName": "endedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionCount",
+            "columnName": "connectionCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dnsQueryCount",
+            "columnName": "dnsQueryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uniqueObservedDomains",
+            "columnName": "uniqueObservedDomains",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uploadedBytes",
+            "columnName": "uploadedBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "downloadedBytes",
+            "columnName": "downloadedBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blockedConnectionCount",
+            "columnName": "blockedConnectionCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedConnectionCount",
+            "columnName": "failedConnectionCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedObservationCount",
+            "columnName": "droppedObservationCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schemaVersion",
+            "columnName": "schemaVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "truncated",
+            "columnName": "truncated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exportedObservationCount",
+            "columnName": "exportedObservationCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalObservationCount",
+            "columnName": "totalObservationCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importedAtEpochMs",
+            "columnName": "importedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      },
+      {
+        "tableName": "android_dns_evidence",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `eventId` INTEGER NOT NULL, `batchToken` INTEGER NOT NULL, `packageName` TEXT NOT NULL, `timestampEpochMs` INTEGER NOT NULL, `receivedAtEpochMs` INTEGER NOT NULL, `hostname` TEXT NOT NULL, `resolvedAddressesCsv` TEXT NOT NULL, `totalResolvedAddressCount` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchToken",
+            "columnName": "batchToken",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampEpochMs",
+            "columnName": "timestampEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receivedAtEpochMs",
+            "columnName": "receivedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostname",
+            "columnName": "hostname",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resolvedAddressesCsv",
+            "columnName": "resolvedAddressesCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalResolvedAddressCount",
+            "columnName": "totalResolvedAddressCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_android_dns_evidence_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_android_dns_evidence_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_android_dns_evidence_sessionId_eventId",
+            "unique": true,
+            "columnNames": [
+              "sessionId",
+              "eventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_android_dns_evidence_sessionId_eventId` ON `${TABLE_NAME}` (`sessionId`, `eventId`)"
+          },
+          {
+            "name": "index_android_dns_evidence_sessionId_packageName",
+            "unique": false,
+            "columnNames": [
+              "sessionId",
+              "packageName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_android_dns_evidence_sessionId_packageName` ON `${TABLE_NAME}` (`sessionId`, `packageName`)"
+          }
+        ]
+      },
+      {
+        "tableName": "android_connect_evidence",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `eventId` INTEGER NOT NULL, `batchToken` INTEGER NOT NULL, `packageName` TEXT NOT NULL, `timestampEpochMs` INTEGER NOT NULL, `receivedAtEpochMs` INTEGER NOT NULL, `destinationAddress` TEXT NOT NULL, `destinationPort` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchToken",
+            "columnName": "batchToken",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampEpochMs",
+            "columnName": "timestampEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receivedAtEpochMs",
+            "columnName": "receivedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destinationAddress",
+            "columnName": "destinationAddress",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destinationPort",
+            "columnName": "destinationPort",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_android_connect_evidence_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_android_connect_evidence_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_android_connect_evidence_sessionId_eventId",
+            "unique": true,
+            "columnNames": [
+              "sessionId",
+              "eventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_android_connect_evidence_sessionId_eventId` ON `${TABLE_NAME}` (`sessionId`, `eventId`)"
+          },
+          {
+            "name": "index_android_connect_evidence_sessionId_packageName",
+            "unique": false,
+            "columnNames": [
+              "sessionId",
+              "packageName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_android_connect_evidence_sessionId_packageName` ON `${TABLE_NAME}` (`sessionId`, `packageName`)"
+          }
+        ]
+      },
+      {
+        "tableName": "android_evidence_summaries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `dnsCount` INTEGER NOT NULL, `connectCount` INTEGER NOT NULL, `status` TEXT NOT NULL, `firstEventTimestampEpochMs` INTEGER, `lastEventTimestampEpochMs` INTEGER, `importedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dnsCount",
+            "columnName": "dnsCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectCount",
+            "columnName": "connectCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstEventTimestampEpochMs",
+            "columnName": "firstEventTimestampEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastEventTimestampEpochMs",
+            "columnName": "lastEventTimestampEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "importedAtEpochMs",
+            "columnName": "importedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      },
+      {
+        "tableName": "analysis_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `packageName` TEXT NOT NULL, `appName` TEXT, `versionName` TEXT, `versionCode` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `analyzedAtEpochMs` INTEGER NOT NULL, `minSdkVersion` INTEGER NOT NULL, `targetSdkVersion` INTEGER NOT NULL, `debuggable` INTEGER NOT NULL, `usesCleartextTraffic` INTEGER NOT NULL, `allowBackup` INTEGER NOT NULL, `signatureVerified` INTEGER NOT NULL, `signatureDetail` TEXT, `nativeLibraryAbis` TEXT NOT NULL, `permissionCount` INTEGER NOT NULL, `componentTotalCount` INTEGER NOT NULL, `componentExportedCount` INTEGER NOT NULL, `riskScore` INTEGER NOT NULL, `riskLevel` TEXT NOT NULL, `riskEngineVersion` TEXT NOT NULL, `platform` TEXT, `platformDetails` TEXT, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appName",
+            "columnName": "appName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "versionName",
+            "columnName": "versionName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "versionCode",
+            "columnName": "versionCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256",
+            "columnName": "sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analyzedAtEpochMs",
+            "columnName": "analyzedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minSdkVersion",
+            "columnName": "minSdkVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetSdkVersion",
+            "columnName": "targetSdkVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "debuggable",
+            "columnName": "debuggable",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usesCleartextTraffic",
+            "columnName": "usesCleartextTraffic",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allowBackup",
+            "columnName": "allowBackup",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signatureVerified",
+            "columnName": "signatureVerified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signatureDetail",
+            "columnName": "signatureDetail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "nativeLibraryAbis",
+            "columnName": "nativeLibraryAbis",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissionCount",
+            "columnName": "permissionCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "componentTotalCount",
+            "columnName": "componentTotalCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "componentExportedCount",
+            "columnName": "componentExportedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "riskScore",
+            "columnName": "riskScore",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "riskLevel",
+            "columnName": "riskLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "riskEngineVersion",
+            "columnName": "riskEngineVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "platformDetails",
+            "columnName": "platformDetails",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      },
+      {
+        "tableName": "analysis_permissions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `permission` TEXT NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `analysis_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permission",
+            "columnName": "permission",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_analysis_permissions_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_analysis_permissions_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "analysis_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "analysis_components",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `exported` INTEGER NOT NULL, `permission` TEXT, `intentFiltersJson` TEXT, FOREIGN KEY(`sessionId`) REFERENCES `analysis_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exported",
+            "columnName": "exported",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permission",
+            "columnName": "permission",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "intentFiltersJson",
+            "columnName": "intentFiltersJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_analysis_components_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_analysis_components_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "analysis_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "analysis_risk_findings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `ruleId` TEXT NOT NULL, `severity` TEXT NOT NULL, `title` TEXT NOT NULL, `explanation` TEXT NOT NULL, `scoreContribution` INTEGER NOT NULL, `evidence` TEXT NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `analysis_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleId",
+            "columnName": "ruleId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "severity",
+            "columnName": "severity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scoreContribution",
+            "columnName": "scoreContribution",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "evidence",
+            "columnName": "evidence",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_analysis_risk_findings_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_analysis_risk_findings_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "analysis_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "final_reports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`reportId` TEXT NOT NULL, `analysisId` TEXT NOT NULL, `sessionId` TEXT, `appName` TEXT, `packageName` TEXT NOT NULL, `versionName` TEXT, `versionCode` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `generatedAtEpochMs` INTEGER NOT NULL, `overallScore` INTEGER NOT NULL, `overallLevel` TEXT NOT NULL, `staticScore` INTEGER NOT NULL, `staticLevel` TEXT NOT NULL, `runtimeScore` INTEGER, `runtimeLevel` TEXT, `combinedScore` INTEGER, `staticEngineVersion` TEXT NOT NULL, `runtimeEngineVersion` TEXT, `combinedEngineVersion` TEXT, `staticComplete` INTEGER NOT NULL, `runtimeComplete` INTEGER NOT NULL, `androidEvidenceStatus` TEXT NOT NULL, `platform` TEXT, `platformDetails` TEXT, PRIMARY KEY(`reportId`))",
+        "fields": [
+          {
+            "fieldPath": "reportId",
+            "columnName": "reportId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisId",
+            "columnName": "analysisId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "appName",
+            "columnName": "appName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "versionName",
+            "columnName": "versionName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "versionCode",
+            "columnName": "versionCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256",
+            "columnName": "sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generatedAtEpochMs",
+            "columnName": "generatedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overallScore",
+            "columnName": "overallScore",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overallLevel",
+            "columnName": "overallLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staticScore",
+            "columnName": "staticScore",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staticLevel",
+            "columnName": "staticLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "runtimeScore",
+            "columnName": "runtimeScore",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "runtimeLevel",
+            "columnName": "runtimeLevel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "combinedScore",
+            "columnName": "combinedScore",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "staticEngineVersion",
+            "columnName": "staticEngineVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "runtimeEngineVersion",
+            "columnName": "runtimeEngineVersion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "combinedEngineVersion",
+            "columnName": "combinedEngineVersion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "staticComplete",
+            "columnName": "staticComplete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "runtimeComplete",
+            "columnName": "runtimeComplete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidEvidenceStatus",
+            "columnName": "androidEvidenceStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "platformDetails",
+            "columnName": "platformDetails",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "reportId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_final_reports_analysisId",
+            "unique": false,
+            "columnNames": [
+              "analysisId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_final_reports_analysisId` ON `${TABLE_NAME}` (`analysisId`)"
+          },
+          {
+            "name": "index_final_reports_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_final_reports_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_final_reports_generatedAtEpochMs",
+            "unique": false,
+            "columnNames": [
+              "generatedAtEpochMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_final_reports_generatedAtEpochMs` ON `${TABLE_NAME}` (`generatedAtEpochMs`)"
+          }
+        ]
+      },
+      {
+        "tableName": "final_report_findings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `reportId` TEXT NOT NULL, `ruleId` TEXT NOT NULL, `severity` TEXT NOT NULL, `title` TEXT NOT NULL, `explanation` TEXT NOT NULL, `scoreContribution` INTEGER NOT NULL, `assessmentType` TEXT NOT NULL, `ruleEngineVersion` TEXT NOT NULL, `evidenceJson` TEXT NOT NULL, FOREIGN KEY(`reportId`) REFERENCES `final_reports`(`reportId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reportId",
+            "columnName": "reportId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleId",
+            "columnName": "ruleId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "severity",
+            "columnName": "severity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scoreContribution",
+            "columnName": "scoreContribution",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assessmentType",
+            "columnName": "assessmentType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleEngineVersion",
+            "columnName": "ruleEngineVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "evidenceJson",
+            "columnName": "evidenceJson",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_final_report_findings_reportId",
+            "unique": false,
+            "columnNames": [
+              "reportId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_final_report_findings_reportId` ON `${TABLE_NAME}` (`reportId`)"
+          },
+          {
+            "name": "index_final_report_findings_ruleId",
+            "unique": false,
+            "columnNames": [
+              "ruleId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_final_report_findings_ruleId` ON `${TABLE_NAME}` (`ruleId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "final_reports",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "reportId"
+            ],
+            "referencedColumns": [
+              "reportId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "security_audits",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`auditId` TEXT NOT NULL, `analysisId` TEXT NOT NULL, `engineVersion` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `status` TEXT NOT NULL, `failureReason` TEXT, PRIMARY KEY(`auditId`))",
+        "fields": [
+          {
+            "fieldPath": "auditId",
+            "columnName": "auditId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisId",
+            "columnName": "analysisId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "engineVersion",
+            "columnName": "engineVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failureReason",
+            "columnName": "failureReason",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "auditId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_security_audits_analysisId",
+            "unique": true,
+            "columnNames": [
+              "analysisId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_security_audits_analysisId` ON `${TABLE_NAME}` (`analysisId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "security_audit_findings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `auditId` TEXT NOT NULL, `ruleId` TEXT NOT NULL, `outcome` TEXT NOT NULL, `severity` TEXT NOT NULL, `confidence` TEXT NOT NULL, `title` TEXT NOT NULL, `detail` TEXT NOT NULL, `remediation` TEXT NOT NULL, FOREIGN KEY(`auditId`) REFERENCES `security_audits`(`auditId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "auditId",
+            "columnName": "auditId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleId",
+            "columnName": "ruleId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "severity",
+            "columnName": "severity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detail",
+            "columnName": "detail",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remediation",
+            "columnName": "remediation",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_security_audit_findings_auditId",
+            "unique": false,
+            "columnNames": [
+              "auditId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_security_audit_findings_auditId` ON `${TABLE_NAME}` (`auditId`)"
+          },
+          {
+            "name": "index_security_audit_findings_ruleId",
+            "unique": false,
+            "columnNames": [
+              "ruleId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_security_audit_findings_ruleId` ON `${TABLE_NAME}` (`ruleId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "security_audits",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "auditId"
+            ],
+            "referencedColumns": [
+              "auditId"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '54c15bfb8b2933a7b4eef95d848223bb')"
+    ]
+  }
+}

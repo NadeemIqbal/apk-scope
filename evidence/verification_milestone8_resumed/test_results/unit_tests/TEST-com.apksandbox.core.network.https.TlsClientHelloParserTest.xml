@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.https.TlsClientHelloParserTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-12T02:58:54.237Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.0">
+  <properties/>
+  <testcase name="testExtractSniSubdomain" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <testcase name="testNullWhenNoSni" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <testcase name="testExtractSniFromValidClientHello" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <testcase name="testLargeClientHelloWithPostQuantumExtension" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <testcase name="testNullOnNonTlsOrMalformed" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <testcase name="testRecordCompletenessAndFragmentation" classname="com.apksandbox.core.network.https.TlsClientHelloParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

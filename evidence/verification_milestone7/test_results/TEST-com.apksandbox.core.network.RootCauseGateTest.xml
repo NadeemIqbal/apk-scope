@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.RootCauseGateTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-11T12:34:50.389Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.016">
+  <properties/>
+  <testcase name="udpInvariantsStayCleanAfterNormalOpenAndClose" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.0"/>
+  <testcase name="windowReopenAckFiresOnlyOnTheZeroToNonzeroTransition" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.0"/>
+  <testcase name="engineInvariantsStayCleanAfterNormalOpenAndClose" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.001"/>
+  <testcase name="engineInvariantsAreCleanOnAFreshProxy" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.0"/>
+  <testcase name="connectTimeoutSendsRstToClientBeforeClosing" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.006"/>
+  <testcase name="sweepIdleOneBadTcbDoesNotStopProcessingOthers" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.008"/>
+  <testcase name="connectExceptionSendsRstToClient" classname="com.apksandbox.core.network.RootCauseGateTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

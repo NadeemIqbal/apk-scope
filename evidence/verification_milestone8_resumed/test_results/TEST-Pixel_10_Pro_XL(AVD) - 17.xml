@@ -1,0 +1,84 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="41" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-09-10T15:33:14" hostname="localhost">
+  <testsuite name="com.apksandbox.core.database.AnalysisSessionDaoTest" tests="8" failures="0" errors="0" skipped="0" time="0.322" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="permissionsSurviveRoundTrip" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.143" />
+    <testcase name="riskFindingsSurviveRoundTrip" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.043" />
+    <testcase name="componentsSurviveRoundTrip" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.040" />
+    <testcase name="reAnalysisReplacesPriorPermissionsComponentsAndFindings" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.020" />
+    <testcase name="engineVersionSurvivesRoundTrip" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.017" />
+    <testcase name="historyOrdersNewestFirst" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.024" />
+    <testcase name="insertAndReadCompleteAnalysis" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.016" />
+    <testcase name="deleteAnalysisRemovesSessionAndCascadesChildren" classname="com.apksandbox.core.database.AnalysisSessionDaoTest" time="0.019" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.AndroidEvidenceDaoTest" tests="3" failures="0" errors="0" skipped="0" time="0.036" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="insertAndRetrievePersonalDnsEvidence" classname="com.apksandbox.core.database.AndroidEvidenceDaoTest" time="0.008" />
+    <testcase name="insertAndRetrievePersonalConnectEvidence" classname="com.apksandbox.core.database.AndroidEvidenceDaoTest" time="0.012" />
+    <testcase name="personalSummaryLifecycle" classname="com.apksandbox.core.database.AndroidEvidenceDaoTest" time="0.016" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.FinalReportDaoTest" tests="4" failures="0" errors="0" skipped="0" time="0.082" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="upsertAndRetrieveReportWithFindings" classname="com.apksandbox.core.database.FinalReportDaoTest" time="0.020" />
+    <testcase name="observeAllReportsOrderedByTimestampDescending" classname="com.apksandbox.core.database.FinalReportDaoTest" time="0.029" />
+    <testcase name="retrieveBySessionIdAndAnalysisId" classname="com.apksandbox.core.database.FinalReportDaoTest" time="0.017" />
+    <testcase name="deleteReportCascadesToFindings" classname="com.apksandbox.core.database.FinalReportDaoTest" time="0.016" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.NetworkObservationDaoTest" tests="4" failures="0" errors="0" skipped="0" time="0.091" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="observeForSessionReturnsAscendingSequenceOrder" classname="com.apksandbox.core.database.NetworkObservationDaoTest" time="0.034" />
+    <testcase name="observationsForDifferentSessionsNeverCollideOnSequenceAlone" classname="com.apksandbox.core.database.NetworkObservationDaoTest" time="0.013" />
+    <testcase name="reimportingTheSameArtifactNeverDuplicatesRows" classname="com.apksandbox.core.database.NetworkObservationDaoTest" time="0.026" />
+    <testcase name="summaryUpsertReplacesRatherThanDuplicating" classname="com.apksandbox.core.database.NetworkObservationDaoTest" time="0.018" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.SandboxSessionDaoTest" tests="6" failures="0" errors="0" skipped="0" time="0.162" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="deletingSessionCascadesEnforcements" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.014" />
+    <testcase name="reUpsertReplacesEnforcementsNotAppends" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.021" />
+    <testcase name="enforcementResultsSurviveRoundTrip" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.024" />
+    <testcase name="oneAnalysisCanHaveMultipleSandboxSessions" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.037" />
+    <testcase name="insertAndReadSession" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.037" />
+    <testcase name="historyOrdersNewestFirst" classname="com.apksandbox.core.database.SandboxSessionDaoTest" time="0.029" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" tests="6" failures="0" errors="0" skipped="0" time="0.117" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="insertAndRetrieveConnectEvents" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.020" />
+    <testcase name="sessionDeletionCleansAllEvidence" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.026" />
+    <testcase name="insertAndRetrieveDnsEvents" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.017" />
+    <testcase name="idempotentDnsInsertIgnoresDuplicates" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.024" />
+    <testcase name="summaryUpsertAndAcknowledgmentLifecycle" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.015" />
+    <testcase name="idempotentConnectInsertIgnoresDuplicates" classname="com.apksandbox.core.database.WorkAndroidEvidenceDaoTest" time="0.015" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.WorkEvidenceDaoTest" tests="5" failures="0" errors="0" skipped="0" time="0.114" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="insertAndReadEvidence" classname="com.apksandbox.core.database.WorkEvidenceDaoTest" time="0.010" />
+    <testcase name="unknownSessionReturnsNull" classname="com.apksandbox.core.database.WorkEvidenceDaoTest" time="0.011" />
+    <testcase name="reUpsertReplacesNotDuplicates" classname="com.apksandbox.core.database.WorkEvidenceDaoTest" time="0.012" />
+    <testcase name="deleteReallyRemovesTheRow" classname="com.apksandbox.core.database.WorkEvidenceDaoTest" time="0.017" />
+    <testcase name="evidenceSurvivesReopeningTheDatabase" classname="com.apksandbox.core.database.WorkEvidenceDaoTest" time="0.064" />
+  </testsuite>
+  <testsuite name="com.apksandbox.core.database.WorkNetworkObservationDaoTest" tests="5" failures="0" errors="0" skipped="0" time="0.072" timestamp="2026-09-10T15:33:14" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="observationsPersistAndPreserveSequenceOrdering" classname="com.apksandbox.core.database.WorkNetworkObservationDaoTest" time="0.019" />
+    <testcase name="aggregateQueriesReflectWholeSessionRegardlessOfFeedWindow" classname="com.apksandbox.core.database.WorkNetworkObservationDaoTest" time="0.025" />
+    <testcase name="sessionAttributionAndIdempotentInsert" classname="com.apksandbox.core.database.WorkNetworkObservationDaoTest" time="0.009" />
+    <testcase name="acknowledgementMarksSummaryWithoutDeletingRowsByItself" classname="com.apksandbox.core.database.WorkNetworkObservationDaoTest" time="0.008" />
+    <testcase name="observeLatestForSessionIsBoundedToNewestRows" classname="com.apksandbox.core.database.WorkNetworkObservationDaoTest" time="0.011" />
+  </testsuite>
+</testsuites>

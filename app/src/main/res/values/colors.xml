@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <!-- Adaptive icon background — sampled directly from the launcher artwork's own flat background fill (app/src/main/ic_launcher_source/apk_scope_icon.png), so the separate background/foreground adaptive-icon layers blend seamlessly regardless of per-launcher parallax between them. -->
+ <color name="ic_launcher_background">#0F141A</color>
+</resources>

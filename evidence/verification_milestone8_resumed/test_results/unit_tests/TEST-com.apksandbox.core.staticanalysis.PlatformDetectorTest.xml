@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.staticanalysis.PlatformDetectorTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:06:54.510Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.0">
+  <properties/>
+  <testcase name="fixtureApkIsDetectedAsNativeKotlin" classname="com.apksandbox.core.staticanalysis.PlatformDetectorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

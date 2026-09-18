@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.risk.CapabilityRulesTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-09-11T16:56:33.884Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.007">
+  <properties/>
+  <testcase name="sendSms_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.003"/>
+  <testcase name="requestInstallPackages_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="accessibilityService_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.001"/>
+  <testcase name="receiveSms_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="backgroundLocation_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="receiveSms_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="bootReceiver_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="overlayPermission_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.001"/>
+  <testcase name="overlayPermission_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="bootReceiver_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="readSms_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="queryAllPackages_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="queryAllPackages_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="accessibilityService_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="readSms_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.001"/>
+  <testcase name="sendSms_doesNotFireWhenAbsent" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="backgroundLocation_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <testcase name="requestInstallPackages_firesWhenDeclared" classname="com.apksandbox.core.risk.CapabilityRulesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

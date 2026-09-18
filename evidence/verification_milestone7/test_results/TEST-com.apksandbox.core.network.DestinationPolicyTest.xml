@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.DestinationPolicyTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-11T12:34:50.316Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.005">
+  <properties/>
+  <testcase name="allowsOrdinaryPublicAddress" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesRfc1918OneNineTwo" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesThisNetwork" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesLimitedBroadcast" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="everyIpv6DestinationIsDenied" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.004"/>
+  <testcase name="allowsTestNetReservedRange" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesMulticastLowAndHighEnd" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="localSubnetDenyDoesNotLeakToUnrelatedAddresses" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.001"/>
+  <testcase name="deniesLoopback" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesDevicesCurrentLocalSubnetWhenConfigured" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesRfc1918Ten" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesRfc1918OneSevenTwo" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <testcase name="deniesLinkLocalIncludingCloudMetadata" classname="com.apksandbox.core.network.DestinationPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

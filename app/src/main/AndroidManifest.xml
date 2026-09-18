@@ -1,0 +1,56 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+ <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
+ <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+ <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+ <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+ <queries><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
+ <application android:label="APK Scope" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:testOnly="true">
+  <!-- Production entry point (item 4/23). MainActivity, not GateActivity, is the launcher — the
+       dark Compose UI is the normal user-facing product. GateActivity and the rest of the
+       spike/debug surface below remain fully present for regression testing (still directly
+       reachable via `adb shell am start -n com.nadeem.apkscope/.spike.GateActivity`, exactly as the
+       Physical Pixel 8 Validation Gate used it) and via Settings → Advanced Diagnostics — just no
+       longer the default launcher and never shown in the production navigation. -->
+  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask" android:theme="@android:style/Theme.Material.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+  </activity>
+  <activity android:name=".spike.GateActivity" android:exported="true" android:launchMode="singleTop"/>
+  <service android:name=".spike.GateVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User initiated VPN lifecycle and lockdown feasibility test"/></service>
+  <provider android:name="androidx.core.content.FileProvider" android:authorities="com.nadeem.apkscope.files" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/></provider>
+  <activity android:name=".spike.SpikeImportActivity" android:exported="true"><intent-filter><action android:name="com.nadeem.apkscope.action.IMPORT_APK"/><action android:name="com.nadeem.apkscope.action.REPORT_READY"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter></activity>
+	  <receiver android:name=".spike.InstallResultReceiver" android:exported="false"/>
+	  <receiver android:name=".sandbox.HandoffRefreshReceiver" android:exported="false">
+	   <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
+	  </receiver>
+	  <receiver android:name=".spike.SandboxAdminReceiver" android:exported="true" android:permission="android.permission.BIND_DEVICE_ADMIN">
+   <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin"/>
+   <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/><action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE"/></intent-filter>
+  </receiver>
+
+  <!-- Checkpoint 4: the real production sandbox-session lifecycle (item 3/25) — entirely separate
+       actions/components from the spike surface above, so neither routes through nor collides with
+       the other; both remain independently reachable for regression testing. -->
+  <service android:name=".sandbox.SandboxVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Sandbox session network isolation"/><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
+  <service android:name=".sandbox.SandboxWorkerService" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Sandbox session preparation and teardown"/></service>
+  <activity android:name=".sandbox.SandboxWorkerActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay">
+	   <intent-filter><action android:name="com.nadeem.apkscope.action.SANDBOX_IMPORT_APK"/><action android:name="com.nadeem.apkscope.action.PATCHED_APK_INSTALL"/><action android:name="com.nadeem.apkscope.action.CONTINUE_INSTALL"/><action android:name="com.nadeem.apkscope.action.END_SESSION"/><action android:name="com.nadeem.apkscope.action.ACK_RUNTIME_ARTIFACT"/><action android:name="com.nadeem.apkscope.action.ACK_ANDROID_EVIDENCE"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
+  </activity>
+  <activity android:name=".sandbox.SandboxReportActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay">
+   <intent-filter><action android:name="com.nadeem.apkscope.action.SANDBOX_READY"/><action android:name="com.nadeem.apkscope.action.SANDBOX_ERROR"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
+  </activity>
+  <!-- Only ever targeted via an explicit-component PendingIntent (PackageInstaller session commit / uninstall request) — no intent-filter needed for that delivery path. -->
+  <receiver android:name=".sandbox.SandboxInstallResultReceiver" android:exported="false"/>
+
+  <!-- Checkpoint 4.1: the pull/reconciliation transport's Work-side half (item 6/7/9) — always
+       reached via `startActivityForResult` from a foreground Personal Activity, never started from
+       a background Work process. Distinct action from every checkpoint-4 one-way trigger above. -->
+  <!-- android:theme is TransparentQueryActivity, not Theme.NoDisplay — this Activity does real async work (a VPN poll, a Room read) before finish(), which NoDisplay's platform contract forbids. See styles.xml. -->
+  <activity android:name=".sandbox.SandboxWorkQueryActivity" android:exported="true" android:theme="@style/TransparentQueryActivity" android:excludeFromRecents="true" android:noHistory="true" android:finishOnTaskLaunch="true">
+   <intent-filter><action android:name="com.nadeem.apkscope.action.WORK_QUERY"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
+  </activity>
+ </application>
+</manifest>

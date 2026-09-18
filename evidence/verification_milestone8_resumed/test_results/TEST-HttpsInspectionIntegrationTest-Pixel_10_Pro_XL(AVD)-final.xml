@@ -1,0 +1,98 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="38" failures="2" errors="0" skipped="0" time="0.000" timestamp="2026-09-12T03:09:08" hostname="localhost">
+  <testsuite name="com.apksandbox.endtoend.Checkpoint7ProductionE2ETest" tests="1" failures="0" errors="0" skipped="0" time="0.014" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="testRealEndToEndPipeline_Static_Runtime_AndroidEvidence_Reconciliation" classname="com.apksandbox.endtoend.Checkpoint7ProductionE2ETest" time="0.014" />
+  </testsuite>
+  <testsuite name="com.apksandbox.sandbox.DpmNetworkLoggingIntegrationTest" tests="1" failures="0" errors="0" skipped="0" time="0.013" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="fullDpmEvidencePipeline_record_export_validate_persist_and_ack" classname="com.apksandbox.sandbox.DpmNetworkLoggingIntegrationTest" time="0.013" />
+  </testsuite>
+  <testsuite name="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" tests="26" failures="1" errors="0" skipped="0" time="34.679" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="testPopulateTrafficViewerDemo" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.001">
+      <failure></failure>
+    </testcase>
+    <testcase name="testStaticAnalysisOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.658" />
+    <testcase name="testRedactionAndTruncationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.003" />
+    <testcase name="testDestinationPolicyEnforcementOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.270" />
+    <testcase name="testPostQuantumClientHelloAccumulatorOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.003" />
+    <testcase name="testSseStreamingOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.002" />
+    <testcase name="testHttp2SseStreamingOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.806" />
+    <testcase name="testGrpcInspectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.001" />
+    <testcase name="testConscryptHandshakeOnLoopback" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.200" />
+    <testcase name="testResetLifecycleOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.047" />
+    <testcase name="testHttp2RelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.805" />
+    <testcase name="testUnauthorizedInspectorAccessRejectedOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.071" />
+    <testcase name="testTargetAppRejectionOfInspectionCaOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.861" />
+    <testcase name="testInspectionDisabledPassthroughOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.406" />
+    <testcase name="testUpstreamHostnameMismatchRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.063" />
+    <testcase name="testHttp11SseStreamingOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.546" />
+    <testcase name="testWebSocketUpgradeAndRelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.193" />
+    <testcase name="testEngineInterceptionWithRealPublicHttpsGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.011" />
+    <testcase name="testPlaintextHttpGetOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.494" />
+    <testcase name="testEngineInterceptionWithRealPublicHttpsPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="4.296" />
+    <testcase name="testCaGenerationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.189" />
+    <testcase name="testEngineLifecycleAndBinding" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="0.306" />
+    <testcase name="testHttp2GrpcRelayOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="3.002" />
+    <testcase name="testApkAnalyzerAttachesHostCorrelationOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="2.996" />
+    <testcase name="testPlaintextHttpPostOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.622" />
+    <testcase name="testInvalidUpstreamCertificateRejectionOnDevice" classname="com.apksandbox.sandbox.HttpsInspectionIntegrationTest" time="1.827" />
+  </testsuite>
+  <testsuite name="com.apksandbox.sandbox.WorkAndroidEvidenceSinkTest" tests="3" failures="0" errors="0" skipped="0" time="0.039" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="nullSessionIdDoesNotRecord" classname="com.apksandbox.sandbox.WorkAndroidEvidenceSinkTest" time="0.004" />
+    <testcase name="foreignPackageEventsAreFilteredOut" classname="com.apksandbox.sandbox.WorkAndroidEvidenceSinkTest" time="0.016" />
+    <testcase name="recordEventsPersistsDnsAndConnectEvents" classname="com.apksandbox.sandbox.WorkAndroidEvidenceSinkTest" time="0.019" />
+  </testsuite>
+  <testsuite name="com.apksandbox.sandbox.WorkNetworkObservationSinkTest" tests="4" failures="0" errors="0" skipped="0" time="1.083" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="observationsAreFlushedAndPersistedInOrderOnClose" classname="com.apksandbox.sandbox.WorkNetworkObservationSinkTest" time="0.046" />
+    <testcase name="closeAndFinalizeIsIdempotentSafeToReadBack" classname="com.apksandbox.sandbox.WorkNetworkObservationSinkTest" time="0.012" />
+    <testcase name="queueOverflowDropsAndCountsRatherThanBlocking" classname="com.apksandbox.sandbox.WorkNetworkObservationSinkTest" time="0.803" />
+    <testcase name="twoConcurrentSessionsNeverLeakObservationsIntoEachOther" classname="com.apksandbox.sandbox.WorkNetworkObservationSinkTest" time="0.222" />
+  </testsuite>
+  <testsuite name="com.apksandbox.ui.ColdStartUiRestorationTest" tests="3" failures="1" errors="0" skipped="0" time="28.890" timestamp="2026-09-12T03:09:08" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="existingRunningSession_showsSameSessionId_createsNoNewSession" classname="com.apksandbox.ui.ColdStartUiRestorationTest" time="13.454">
+      <failure>java.lang.AssertionError: Failed to inject touch input.
+Reason: Expected exactly '1' node but found '2' nodes that satisfy: (Text + InputText + EditableText contains 'Cold Start Running Fixture' (ignoreCase: false))
+Nodes found:
+1) Node #220 at (l=96.0, t=558.0, r=858.0, b=642.0)px
+Text = '[Cold Start Running Fixture]'
+Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+Has 5 siblings
+2) Node #195 at (l=48.0, t=2619.0, r=1296.0, b=2868.0)px
+Focused = 'false'
+IsContainer = 'true'
+Role = 'Button'
+Text = '[Cold Start Running Fixture, com.example.coldstart-running-195033395908158, Low Risk · 10]'
+Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+MergeDescendants = 'true'
+Has 6 siblings
+
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:178)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+	at androidx.compose.ui.test.ActionsKt.performTouchInput(Actions.kt:402)
+	at androidx.compose.ui.test.AndroidActions.performClickImpl(Actions.android.kt:23)
+	at androidx.compose.ui.test.ActionsKt.performClick(Actions.kt:60)
+	at com.apksandbox.ui.ColdStartUiRestorationTest.existingRunningSession_showsSameSessionId_createsNoNewSession(ColdStartUiRestorationTest.kt:113)
+</failure>
+    </testcase>
+    <testcase name="dashboard_showsPreExistingAnalysis_afterColdActivityCreation" classname="com.apksandbox.ui.ColdStartUiRestorationTest" time="7.248" />
+    <testcase name="analysisDetail_rendersRealPersistedData_notStuckLoading" classname="com.apksandbox.ui.ColdStartUiRestorationTest" time="8.188" />
+  </testsuite>
+</testsuites>

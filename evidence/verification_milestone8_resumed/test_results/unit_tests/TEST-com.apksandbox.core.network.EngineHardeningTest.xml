@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.apksandbox.core.network.EngineHardeningTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-09-12T02:58:51.433Z" hostname="NextGenis-MacBook-Pro-3.local" time="0.014">
+  <properties/>
+  <testcase name="udpToDevicesOwnCurrentLocalSubnetIsDenied" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.004"/>
+  <testcase name="tcpSynToCloudMetadataAddressIsDenied" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.001"/>
+  <testcase name="closeAllLeavesZeroActiveTcpConnections" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.003"/>
+  <testcase name="engineWideBufferBudgetIsEnforceable" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="udpToPrivateRfc1918AddressIsDenied" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="tcpSegmentWithCorruptedChecksumIsDropped" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="tcpConnectionsBeyondTheLimitAreRejectedWithoutOpeningASocket" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.001"/>
+  <testcase name="closeAllLeavesZeroActiveUdpSessions" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.002"/>
+  <testcase name="truncatedUdpHeaderIsDroppedNotCrashed" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="tcpSegmentWithInvalidDataOffsetIsDropped" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.001"/>
+  <testcase name="ipTotalLengthLyingAboutPacketSizeIsRejectedByClassify" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="udpSessionsBeyondTheLimitAreRejected" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="zeroLengthPacketAndGarbageAreClassifiedWithoutThrowing" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="tcpSynToTestNetPublicRangeIsAllowedAndOpensAConnection" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="udpDatagramWithCorruptedChecksumIsDropped" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="udpZeroLengthChecksumOfZeroMeansNoChecksumAndIsStillForwarded" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <testcase name="tcpSynToLoopbackIsDeniedAndNeverOpensAConnection" classname="com.apksandbox.core.network.EngineHardeningTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

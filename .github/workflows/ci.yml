@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -48,10 +49,11 @@ jobs:
         run: ./gradlew lintDebug
 
       - name: Assemble Release APK
+        if: github.event_name == 'workflow_dispatch'
         run: ./gradlew assembleRelease
 
       - name: Upload Release APK
-        if: success()
+        if: github.event_name == 'workflow_dispatch' && success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release-unsigned
@@ -59,8 +61,8 @@ jobs:
           retention-days: 7
 
   update-release:
-    name: Update GitHub Release
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    name: Update GitHub Release (Manual)
+    if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: build-and-test
     runs-on: ubuntu-latest
     permissions:

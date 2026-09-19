@@ -88,11 +88,17 @@ jobs:
           release_tag="v${version_name}"
           apk_path="$(find release-assets -type f -name '*.apk' -print -quit)"
           test -n "$apk_path"
-          release_apk="release-assets/APK-Scope-${release_tag}.apk"
+          release_filename="APK-Scope-${release_tag}.apk"
+          release_apk="release-assets/${release_filename}"
           mv "$apk_path" "$release_apk"
 
           if gh release view "$release_tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release upload "$release_tag" "$release_apk" --repo "$GH_REPO" --clobber
+            gh release view "$release_tag" --repo "$GH_REPO" --json assets --jq \
+              '.assets[].name | select(endswith(".apk")) | select(. != "'"$release_filename"'")' |
+              while IFS= read -r old_apk; do
+                test -z "$old_apk" || gh release delete-asset "$release_tag" "$old_apk" --repo "$GH_REPO" --yes
+              done
             gh release edit "$release_tag" --repo "$GH_REPO" \
               --title "APK Scope ${release_tag}" \
               --notes "Automated build from commit ${GITHUB_SHA}."

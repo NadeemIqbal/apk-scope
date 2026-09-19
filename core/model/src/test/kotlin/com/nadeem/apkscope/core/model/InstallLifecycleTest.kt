@@ -11,9 +11,10 @@ class InstallLifecycleTest {
   // FAILURE, BLOCKED, INVALID, CONFLICT, STORAGE, INCOMPATIBLE, unknown.
   for (status in listOf(1, 2, 4, 5, 6, 7, Int.MIN_VALUE)) assertEquals(InstallLifecycle.Outcome.FAILED, InstallLifecycle.outcome(status))
  }
- @Test fun absentInstallerAndPackageInterruptInstallingOnly() {
+ @Test fun absentInstallerAndPackageInterruptPendingInstallStates() {
   for (state in SandboxSessionState.entries) for (installed in listOf(false, true)) for (active in listOf(false, true)) {
-   assertEquals(state == SandboxSessionState.INSTALLING && !installed && !active, InstallLifecycle.interrupted(state, installed, active))
+   val expected = state in setOf(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLING) && !installed && !active
+   assertEquals(expected, InstallLifecycle.interrupted(state, installed, active))
   }
  }
  @Test fun allNotificationGatesMustPass() {

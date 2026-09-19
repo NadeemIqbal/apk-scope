@@ -3,6 +3,7 @@ package com.nadeem.apkscope.poc.apkrepack
 import android.content.Context
 import android.util.Log
 import java.io.File
+import java.util.zip.ZipFile
 
 /**
  * Injects Frida Gadget payload into an APK for instrumentation.
@@ -25,7 +26,7 @@ class GadgetPayloadInjector(private val context: Context) {
      * @param presentAbis List of ABIs supported by the target APK.
      * @return Map of APK-relative paths to file contents (ready for ReVancedApkRepacker.repack)
      */
-    fun buildPayload(presentAbis: List<String>, targetPackageName: String): Map<String, ByteArray> {
+    fun buildPayload(presentAbis: List<String>, targetPackageName: String, apkFile: File): Map<String, ByteArray> {
         Log.i(TAG, "Building Frida Gadget payload for ABIs: $presentAbis, package: $targetPackageName...")
 
         val payload = mutableMapOf<String, ByteArray>()
@@ -98,21 +99,55 @@ class GadgetPayloadInjector(private val context: Context) {
         payload["assets/poc_instrumentation.marker"] = marker
         Log.i(TAG, "✓ Added marker asset: ${marker.size} bytes")
 
-        // 4. Network Security Configuration — intentionally NOT injected.
-        // res/xml/network_security_config.xml is a COMPILED binary AXML resource that
-        // resources.arsc points at. Writing plain-text XML into that slot produces a
-        // "Corrupt XML binary file" and crashes the target at Application init before any
-        // hook runs. This overwrite also never delivered its intended "fallback CA trust":
-        // ReVancedApkRepacker only edits AppComponentFactory/extractNativeLibs in the
-        // manifest, so android:networkSecurityConfig is never added — an app without an
-        // existing nsc reference would ignore the dropped file anyway, and an app WITH one
-        // had its real config corrupted. The Frida gadget hooks SSL_read/SSL_write directly
-        // and does not depend on nsc CA trust, so the target's original (valid, compiled)
-        // network security config is preserved untouched.
+        // 4. Network Security Configuration: add inspection-CA (user) trust by MODIFYING the
+        // target's existing binary NSC in place, preserving the exact aapt2-produced chunk layout
+        // the platform's resource loader accepts. res/xml/* is loaded as compiled binary XML;
+        // both a plain-text file and an AXML synthesized from scratch are rejected at launch with
+        // "Corrupt XML binary file" (nativeOpenXmlAsset), so we only augment an existing config.
+        // A target without one is left untouched (adding a referenced resource would also require
+        // editing resources.arsc + the manifest — out of scope here).
+        // Only replace the target's NSC if it already has one (so the manifest + resources.arsc
+        // already reference res/xml/network_security_config.xml at 0x7f010000). The replacement
+        // MUST be aapt2-compiled AXML: Android's runtime resource loader rejects both plain text
+        // and ARSCLib-synthesized AXML as "Corrupt XML binary file" on newer platforms, so we ship
+        // the aapt2 output (frida_nsc.bin) in app assets and inject it verbatim.
+        // Replace the target's NSC (only if it already has one, so the manifest + resources.arsc
+        // already reference it) with an aapt2-compiled config that trusts the user CA store. It must
+        // be aapt2-compiled AXML shipped in assets (frida_nsc.bin); ARSCLib-synthesized AXML is
+        // rejected by the runtime resource loader on newer platforms.
+        // Replace the target's NSC (only when it already has one, so the manifest + resources.arsc
+        // already reference it) with an aapt2-compiled config that trusts the user CA store. It must
+        // be aapt2-compiled AXML (frida_nsc.bin) — Android's runtime resource loader rejects plain
+        // text and ARSCLib-synthesized AXML.
+        if (readExistingNetworkSecurityConfig(apkFile) != null) {
+            try {
+                payload["res/xml/network_security_config.xml"] =
+                    context.assets.open("frida_nsc.bin").use { it.readBytes() }
+                Log.i(TAG, "✓ Replaced Network Security Config (aapt2-compiled binary XML)")
+            } catch (e: Exception) {
+                Log.w(TAG, "frida_nsc.bin missing; leaving target trust config unchanged: ${e.message}")
+            }
+        } else {
+            Log.i(TAG, "Target has no network_security_config.xml; leaving trust config unchanged")
+        }
 
         Log.i(TAG, "Payload complete: ${payload.size} files, ${payload.values.sumOf { it.size }} total bytes")
         return payload
     }
+
+    /** Read the target's compiled res/xml/network_security_config.xml, or null if it has none. */
+    private fun readExistingNetworkSecurityConfig(apkFile: File): ByteArray? {
+        return try {
+            ZipFile(apkFile).use { zip ->
+                val entry = zip.getEntry("res/xml/network_security_config.xml") ?: return null
+                zip.getInputStream(entry).use { it.readBytes() }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not read existing network_security_config.xml: ${e.message}")
+            null
+        }
+    }
+
 
     /**
      * Verify that at least one required Frida Gadget binary is available.

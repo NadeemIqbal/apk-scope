@@ -50,6 +50,10 @@ class SandboxStateMachineTest {
   assertTrue(SandboxStateMachine.canTransition(SandboxSessionState.READY, SandboxSessionState.ENDING))
  }
 
+ @Test fun lostInstallingReportCanBeRecoveredFromWaitingToInstalled() {
+  assertTrue(SandboxStateMachine.canTransition(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLED))
+ }
+
  @Test fun everyNonTerminalStateCanFail() {
   for (state in SandboxSessionState.entries.filterNot { SandboxStateMachine.isTerminal(it) }) {
    assertTrue("$state should be able to transition to FAILED", SandboxStateMachine.canTransition(state, SandboxSessionState.FAILED))

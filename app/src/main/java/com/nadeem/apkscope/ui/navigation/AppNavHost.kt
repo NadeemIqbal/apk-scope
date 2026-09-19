@@ -188,9 +188,6 @@ fun AppNavHost(onOpenAdvancedDiagnostics: () -> Unit) {
    val route: SandboxPreparingRoute = backStackEntry.toRoute()
    SandboxPreparingScreen(
     sessionId = route.sessionId,
-    onOpenWorkNetworkInspector = {
-     SandboxProfileSwitcher.openSandboxProfile(context, SandboxProfileSwitcher.Destination.TRAFFIC_INSPECTOR)
-    },
     onOpenWorkSandbox = { SandboxProfileSwitcher.openSandboxProfile(context) },
     // Retry root-cause fix: a Retry on a FAILED/CANCELLED session creates a genuinely fresh session
     // (the old one's own id can never make forward progress again — see the ViewModel's own doc) —
@@ -204,7 +201,6 @@ fun AppNavHost(onOpenAdvancedDiagnostics: () -> Unit) {
    val route: SandboxReadyRoute = backStackEntry.toRoute()
    SandboxReadyScreen(
     sessionId = route.sessionId,
-    onLaunch = { id -> navController.navigate(LiveMonitorRoute(id)) { popUpTo(HomeRoute) { inclusive = false } } },
     onBack = { goHome() },
    )
   }

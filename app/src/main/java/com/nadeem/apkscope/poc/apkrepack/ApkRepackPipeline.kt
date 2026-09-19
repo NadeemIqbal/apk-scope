@@ -98,7 +98,7 @@ class ApkRepackPipeline(private val context: Context) {
                     Log.i(TAG, "Preparing Frida Gadget payload injection...")
                     val presentAbis = RepackCompatibilityChecker.getPresentSupportedAbis(apkFile)
                     val targetPackageName = archiveInfo.packageName ?: "unknown"
-                    val payload = injector.buildPayload(presentAbis, targetPackageName)
+                    val payload = injector.buildPayload(presentAbis, targetPackageName, apkFile)
                     onProgress(Progress(ProgressPhase.REPACKING, 0.12f, "Frida Gadget payload ready"))
                     payload
                 } else {

@@ -1,3 +1,14 @@
+import javax.inject.Inject
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -46,6 +57,9 @@ dependencies {
     // POC: APK modification, alignment, and signing
     // Unified pipeline: extraction → file injection → ZIP alignment → signing
     implementation("com.android.tools.build:apksig:8.2.0")
+    // ZIP writer that back-patches entry sizes (no data descriptors) — matches aapt output so
+    // repacked res/xml assets load on-device. java.util.zip.ZipOutputStream cannot do this.
+    implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
     implementation("io.github.reandroid:ARSCLib:1.3.5")
@@ -95,4 +109,58 @@ dependencies {
     // Activity via `startActivityForResult` and suspends until it finishes, so an automated test
     // needs a real, off-process way to close that screen (a `pressBack()`), not a mock.
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+}
+
+// ── Frida loader payload → app assets ──────────────────────────────────────────
+// The repack pipeline injects frida_loader.dex (the FridaLoaderFactory
+// AppComponentFactory) into a *target* APK at patch time. That dex is built by the
+// standalone :payload:fridaloader module (it is payload for the target, not APK
+// Scope code), and consumed here purely as an asset to carry. Resolving it through
+// a configuration keeps the modules isolated instead of reaching into the payload
+// module's tasks; the stage task drops it into a generated assets dir wired into
+// the merged assets, so ReVancedApkRepacker can read it via context.assets.
+val fridaLoaderPayloadDeps = configurations.dependencyScope("fridaLoaderPayloadDeps").get()
+val fridaLoaderPayload = configurations.resolvable("fridaLoaderPayload") {
+    extendsFrom(fridaLoaderPayloadDeps)
+}.get()
+
+dependencies {
+    add(
+        fridaLoaderPayloadDeps.name,
+        project(mapOf("path" to ":payload:fridaloader", "configuration" to "fridaLoaderDex")),
+    )
+}
+
+val stageFridaLoaderDex = tasks.register<StageFridaLoaderAsset>("stageFridaLoaderDex") {
+    payload.from(fridaLoaderPayload)
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            stageFridaLoaderDex,
+            StageFridaLoaderAsset::outputDir,
+        )
+    }
+}
+
+// Copies the resolved frida_loader.dex payload into a generated assets directory
+// that AGP wires into the variant's merged assets.
+abstract class StageFridaLoaderAsset @Inject constructor(
+    private val fs: FileSystemOperations,
+) : DefaultTask() {
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val payload: ConfigurableFileCollection
+
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun stage() {
+        fs.sync {
+            from(payload)
+            into(outputDir)
+        }
+    }
 }

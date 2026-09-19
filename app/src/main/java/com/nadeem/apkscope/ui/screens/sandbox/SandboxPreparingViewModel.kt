@@ -18,9 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class SandboxPreparingUiState(
  val environmentCheck: StepState = StepState.PENDING,
@@ -29,6 +29,8 @@ data class SandboxPreparingUiState(
  val apkHandoff: StepState = StepState.PENDING,
  val awaitingInstallConfirmation: StepState = StepState.PENDING,
  val showContinueInstallation: Boolean = false,
+ val showReinstall: Boolean = false,
+ val isReinstalling: Boolean = false,
  val showContinueToReady: Boolean = false,
  val blockedReason: String? = null,
  val technicalDetail: String? = null,
@@ -70,11 +72,13 @@ data class SandboxPreparingUiState(
     SandboxSessionState.PREPARING -> SandboxPreparingUiState(environmentCheck = StepState.ACTIVE)
     SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION -> SandboxPreparingUiState(
      environmentCheck = StepState.COMPLETE, restrictionsApplied = StepState.COMPLETE, networkIsolation = StepState.COMPLETE,
-     apkHandoff = StepState.COMPLETE, awaitingInstallConfirmation = StepState.ACTIVE, showContinueInstallation = true,
+    apkHandoff = StepState.COMPLETE, awaitingInstallConfirmation = StepState.ACTIVE, showContinueInstallation = true,
+     showReinstall = true,
     )
     SandboxSessionState.INSTALLING -> SandboxPreparingUiState(
      environmentCheck = StepState.COMPLETE, restrictionsApplied = StepState.COMPLETE, networkIsolation = StepState.COMPLETE,
      apkHandoff = StepState.COMPLETE, awaitingInstallConfirmation = StepState.ACTIVE,
+     showReinstall = true,
     )
     SandboxSessionState.INSTALLED -> SandboxPreparingUiState(
      environmentCheck = StepState.COMPLETE, restrictionsApplied = StepState.COMPLETE, networkIsolation = StepState.COMPLETE,
@@ -87,7 +91,14 @@ data class SandboxPreparingUiState(
     SandboxSessionState.FAILED, SandboxSessionState.CANCELLED -> fromError(session.error)
     else -> SandboxPreparingUiState(environmentCheck = StepState.COMPLETE, restrictionsApplied = StepState.COMPLETE, networkIsolation = StepState.COMPLETE, apkHandoff = StepState.COMPLETE, showContinueToReady = true)
    }
-   return base.copy(packageName = session.packageName)
+   return base.copy(
+    packageName = session.packageName,
+    showReinstall = base.showReinstall || session.error?.code in setOf(
+     SandboxErrorCode.INSTALL_FAILED,
+     SandboxErrorCode.INSTALL_USER_CANCELLED,
+     SandboxErrorCode.PACKAGE_MISMATCH,
+    ),
+   )
   }
 
   private fun fromError(error: SandboxError?): SandboxPreparingUiState {
@@ -131,6 +142,7 @@ class SandboxPreparingViewModel(
  val uiState: StateFlow<SandboxPreparingUiState> = _uiState.asStateFlow()
  private var prepareStarted = false
  private var statusRecoveryJob: Job? = null
+ private var lastReconciliationStartedAtMs = 0L
 
  init {
   viewModelScope.launch {
@@ -155,6 +167,7 @@ class SandboxPreparingViewModel(
       isEnding = _uiState.value.isEnding,
       endError = _uiState.value.endError,
       navigateHome = _uiState.value.navigateHome,
+      isReinstalling = _uiState.value.isReinstalling,
      )
     }
    }
@@ -177,15 +190,25 @@ class SandboxPreparingViewModel(
  }
 
  fun refreshInstallation(activity: Activity) {
-  viewModelScope.launch {
-   coordinator.importEvidence(activity, sessionId)
-   coordinator.reconcile(sessionId)
-  }
+  requestReconciliation(activity)
  }
 
  fun continueInstallation(activity: Activity) {
   viewModelScope.launch {
    coordinator.continueInstallation(activity, sessionId)
+   startStatusRecovery(activity)
+  }
+ }
+
+ fun reinstall(activity: Activity) {
+  if (_uiState.value.isReinstalling || !_uiState.value.showReinstall) return
+  _uiState.value = _uiState.value.copy(isReinstalling = true)
+  viewModelScope.launch {
+   try {
+    coordinator.reinstall(activity, sessionId)
+   } finally {
+    _uiState.value = _uiState.value.copy(isReinstalling = false)
+   }
    startStatusRecovery(activity)
   }
  }
@@ -233,15 +256,28 @@ class SandboxPreparingViewModel(
  }
 
  private fun startStatusRecovery(activity: Activity) {
-  if (statusRecoveryJob?.isActive == true) return
-  statusRecoveryJob = viewModelScope.launch {
-   repeat(12) {
-    delay(1_000)
-    val current = coordinator.observe(sessionId).first() ?: return@launch
-    if (current.state != SandboxSessionState.PREPARING && current.state != SandboxSessionState.INSTALLING) return@launch
-    coordinator.importEvidence(activity, sessionId)
-    coordinator.reconcile(sessionId)
-   }
+  requestReconciliation(activity)
+ }
+
+ /**
+  * A Work-profile query briefly resumes this Activity when it returns. Never start another query
+  * from that immediate resume, or the query Activity and this screen form a visible loop. A
+  * single-flight request plus a short cooldown still recovers lost reports when the user returns
+  * to this screen, while normal install callbacks remain the primary update path.
+  */
+ private fun requestReconciliation(activity: Activity) {
+  val now = android.os.SystemClock.elapsedRealtime()
+  if (statusRecoveryJob?.isActive == true || now - lastReconciliationStartedAtMs < 3_000L) return
+  lastReconciliationStartedAtMs = now
+  statusRecoveryJob = viewModelScope.launch { reconcileInstallation(activity) }
+ }
+
+ private suspend fun reconcileInstallation(activity: Activity) {
+  // A dropped cross-profile query must not leave this screen suspended forever. Cancellation
+  // clears the bridge continuation and the next poll/resume can retry the authoritative read.
+  withTimeoutOrNull(5_000) {
+   coordinator.importEvidence(activity, sessionId)
+   coordinator.reconcile(sessionId)
   }
  }
 

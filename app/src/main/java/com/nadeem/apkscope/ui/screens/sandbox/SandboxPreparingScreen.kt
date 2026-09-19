@@ -14,8 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,10 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,7 +40,6 @@ import com.nadeem.apkscope.ui.components.PrimaryActionButton
 import com.nadeem.apkscope.ui.components.SecondaryActionButton
 import com.nadeem.apkscope.ui.components.StickyActionBar
 import com.nadeem.apkscope.ui.components.isPackageInstalledInPersonal
-import com.nadeem.apkscope.ui.components.openSandboxAppLabel
 import com.nadeem.apkscope.ui.theme.ApkScopeTheme
 import com.nadeem.apkscope.ui.theme.Spacing
 
@@ -60,7 +55,6 @@ import com.nadeem.apkscope.ui.theme.Spacing
 fun SandboxPreparingScreen(
  sessionId: String,
  onRetryAsNewSession: (String) -> Unit,
- onOpenWorkNetworkInspector: () -> Unit,
  onOpenWorkSandbox: () -> Unit,
  onBack: () -> Unit,
  modifier: Modifier = Modifier,
@@ -69,7 +63,6 @@ fun SandboxPreparingScreen(
  val environmentRepository = remember { EnvironmentRepository(context.applicationContext) }
  val viewModel = sessionViewModel { SandboxPreparingViewModel(context.applicationContext as Application, sessionId) }
  val state by viewModel.uiState.collectAsState()
- var overflowExpanded by remember { mutableStateOf(false) }
 
  val provisioningLauncher = rememberLauncherForActivityResult(
   contract = ActivityResultContracts.StartActivityForResult(),
@@ -119,7 +112,6 @@ fun SandboxPreparingScreen(
  LaunchedEffect(state.showContinueInstallation) {
   if (state.showContinueInstallation) viewModel.continueInstallation(context as Activity)
  }
-
  BackHandler(onBack = onBack)
 
  if (state.showEndConfirmation) {
@@ -143,12 +135,10 @@ fun SandboxPreparingScreen(
 
  Scaffold(
   modifier = modifier,
-  topBar = { AppTopBar(title = "Preparing Sandbox", onBack = onBack, onOverflow = { overflowExpanded = true }) },
+  topBar = { AppTopBar(title = "Preparing Sandbox", onBack = onBack) },
   bottomBar = {
    StickyActionBar {
-    if (state.awaitingInstallConfirmation == StepState.ACTIVE && !state.showContinueInstallation) {
-     SecondaryActionButton(text = "Check installation status", onClick = { viewModel.refreshInstallation(context as Activity) })
-    }
+    // Installation status is reconciled automatically on resume and by the in-flight poll.
     if (state.errorCode == SandboxErrorCode.WORK_PROFILE_MISSING && environmentRepository.isProvisioningAllowed()) {
      PrimaryActionButton(
       text = "Set Up Work Profile",
@@ -191,16 +181,17 @@ fun SandboxPreparingScreen(
      SecondaryActionButton(text = "Back to start a new session", onClick = onBack)
     }
     if (state.showContinueToReady) {
-     PrimaryActionButton(
-      text = if (state.launchingSandboxedApp) "Opening…" else openSandboxAppLabel(state.appName, state.packageName),
-      onClick = { viewModel.launchSandboxedApp(context as Activity) },
-      loading = state.launchingSandboxedApp,
-     )
-     SecondaryActionButton(text = "Open Work Network Inspector", onClick = onOpenWorkNetworkInspector)
      SecondaryActionButton(text = "Open Work Sandbox", onClick = onOpenWorkSandbox)
     }
+    if (state.showReinstall && !state.showContinueToReady) {
+     SecondaryActionButton(
+      text = if (state.isReinstalling) "Reinstalling…" else "Reinstall",
+      onClick = { viewModel.reinstall(context as Activity) },
+      enabled = !state.isReinstalling,
+     )
+    }
     DestructiveActionButton(
-     text = if (state.isEnding) "Ending…" else "End Sandbox Session",
+     text = if (state.isEnding) "Ending…" else "End Session",
      onClick = viewModel::requestEndSession,
      enabled = !state.isEnding,
     )
@@ -231,7 +222,7 @@ fun SandboxPreparingScreen(
     }
 
     if (state.awaitingInstallConfirmation == StepState.ACTIVE && !state.showContinueInstallation) {
-     InfoCard(title = "Confirm installation in Android", text = "Tap the installation notification in your Work Profile. After installing or cancelling, check the result here.")
+     InfoCard(title = "Confirm installation in Android", text = "Tap the installation notification in your Work Profile. If Android did not finish the install, tap Reinstall below.")
     }
     if (state.errorCode == SandboxErrorCode.WORK_PROFILE_MISSING && environmentRepository.isProvisioningAllowed()) {
     }
@@ -251,28 +242,6 @@ fun SandboxPreparingScreen(
     }
 
     if (state.showContinueToReady) {
-    }
-   }
-
-   Box(Modifier.align(Alignment.TopEnd)) {
-    DropdownMenu(
-     expanded = overflowExpanded,
-     onDismissRequest = { overflowExpanded = false },
-    ) {
-     DropdownMenuItem(
-      text = { Text("End Sandbox Session") },
-      onClick = {
-       overflowExpanded = false
-       viewModel.requestEndSession()
-      },
-     )
-     DropdownMenuItem(
-      text = { Text("Back to Home") },
-      onClick = {
-       overflowExpanded = false
-       onBack()
-      },
-     )
     }
    }
 

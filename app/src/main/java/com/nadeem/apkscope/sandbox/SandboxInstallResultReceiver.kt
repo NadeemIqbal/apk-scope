@@ -19,6 +19,7 @@ import com.nadeem.apkscope.core.crossprofile.CrossProfileContract
 import com.nadeem.apkscope.core.sandbox.PolicyEnforcer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -107,7 +108,14 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
   }
 
   if (status != PackageInstaller.STATUS_PENDING_USER_ACTION) {
-   prefs.edit().remove("pending_$installSessionId").apply()
+   // The callback is terminal for this PackageInstaller session. Remove all per-session
+   // bookkeeping so a later process restart cannot accidentally associate a stale callback with
+   // the current sandbox session.
+   prefs.edit()
+    .remove("pending_$installSessionId")
+    .remove("session_$installSessionId")
+    .remove("package_$installSessionId")
+    .apply()
    context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID_INSTALL)
    PackageInstallerDiagnostics.log("final callback mySessions=${context.packageManager.packageInstaller.mySessions.map { it.sessionId }}")
   }
@@ -125,12 +133,17 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
     } else {
      // Durable pending marker; the system notification owns the actual permission-bearing Intent.
      check(prefs.edit().putBoolean("pending_$installSessionId", true).commit())
-     launchConfirmationDirectly(context, confirmation)
+     // Keep the notification as the single user-action entry point. Starting the same
+     // confirmation Intent from the receiver as well creates two competing PackageInstaller UI
+     // paths on some Android builds.
      notifyActionRequired(context, NOTIFICATION_ID_INSTALL, "APK Scope · Sandbox", "Tap to confirm installing this app in the Sandbox.", confirmation)
     }
    }
    com.nadeem.apkscope.core.model.InstallLifecycle.Outcome.VERIFY_PACKAGE -> {
-    val installedInfo = try { expectedPackage?.let { context.packageManager.getPackageInfo(it, 0) } } catch (_: PackageManager.NameNotFoundException) { null }
+    // PackageInstaller can report success before every PackageManager client observes the new
+    // package. Retry the authoritative lookup briefly instead of turning that visibility window
+    // into a terminal PACKAGE_MISMATCH and leaving the Personal session stale.
+    val installedInfo = awaitInstalledPackage(context, expectedPackage)
     if (installedInfo == null || installedInfo.packageName != expectedPackage) {
      report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
       error = SandboxError(SandboxErrorCode.PACKAGE_MISMATCH, "The installed app does not match the app that was analyzed.", "expected=$expectedPackage actual=${installedInfo?.packageName}", Recoverability.TERMINAL)), expectedPackage)
@@ -154,6 +167,18 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
    else -> report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
     error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "Installation failed.", "status=$status: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}", Recoverability.RETRYABLE)), expectedPackage)
   }
+ }
+
+ private suspend fun awaitInstalledPackage(context: Context, packageName: String?, attempts: Int = 20): android.content.pm.PackageInfo? {
+  if (packageName == null) return null
+  repeat(attempts) { attempt ->
+   try {
+    return context.packageManager.getPackageInfo(packageName, 0)
+   } catch (_: PackageManager.NameNotFoundException) {
+    if (attempt < attempts - 1) delay(250)
+   }
+  }
+  return null
  }
 
  private suspend fun handleUninstallResult(context: Context, intent: Intent) {

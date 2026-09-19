@@ -11,8 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.RocketLaunch
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
@@ -32,11 +30,9 @@ import com.nadeem.apkscope.ui.components.AppTopBar
 import com.nadeem.apkscope.ui.components.DestructiveActionButton
 import com.nadeem.apkscope.ui.components.EnvironmentStatusCard
 import com.nadeem.apkscope.ui.components.PolicyStatusRow
-import com.nadeem.apkscope.ui.components.PrimaryActionButton
 import com.nadeem.apkscope.ui.components.SecondaryActionButton
 import com.nadeem.apkscope.ui.components.StickyActionBar
 import com.nadeem.apkscope.ui.components.WarningCard
-import com.nadeem.apkscope.ui.components.openSandboxAppLabel
 import com.nadeem.apkscope.ui.common.sessionViewModel
 import com.nadeem.apkscope.ui.theme.ApkScopeTheme
 import com.nadeem.apkscope.ui.theme.Spacing
@@ -47,7 +43,7 @@ import com.nadeem.apkscope.ui.theme.Spacing
  * Prepare sequence — no fake green checks (item 10's explicit instruction).
  */
 @Composable
-fun SandboxReadyScreen(sessionId: String, onLaunch: (String) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SandboxReadyScreen(sessionId: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
  val context = LocalContext.current
  val viewModel = sessionViewModel { SandboxReadyViewModel(context.applicationContext as Application, sessionId) }
  val state by viewModel.uiState.collectAsState()
@@ -84,22 +80,15 @@ fun SandboxReadyScreen(sessionId: String, onLaunch: (String) -> Unit, onBack: ()
 
  Scaffold(
   modifier = modifier,
-  topBar = { AppTopBar(title = "Sandbox Ready", onBack = onBack, onOverflow = {}) },
+  topBar = { AppTopBar(title = "Sandbox Ready", onBack = onBack) },
   bottomBar = {
    StickyActionBar {
-    PrimaryActionButton(
-     text = if (state.isVerifyingIsolation) "Verifying & Opening…" else openSandboxAppLabel(state.appName, state.packageName),
-     icon = Icons.Filled.RocketLaunch,
-     loading = state.isVerifyingIsolation,
-     onClick = { viewModel.launch(context as Activity) { onLaunch(sessionId) } },
-    )
     SecondaryActionButton(
-     text = "Open Work Live Monitor",
-     icon = Icons.Filled.Shield,
+     text = "Open Work Sandbox",
      onClick = { com.nadeem.apkscope.sandbox.SandboxProfileSwitcher.openSandboxProfile(context) },
     )
     DestructiveActionButton(
-     text = if (state.isEnding) "Ending…" else "End Sandbox Session",
+     text = if (state.isEnding) "Ending…" else "End Session",
      onClick = viewModel::requestEndSession,
      enabled = !state.isEnding,
     )
@@ -153,7 +142,6 @@ private fun SandboxReadyScreenPreview() {
      rows.forEach { (icon, label, status) -> PolicyStatusRow(icon = icon, label = label, status = status) }
     }
     WarningCard(title = "${rows.size} restriction(s) unavailable", text = "Set up the secure sandbox from Home before launching, or continue — other protections remain fully active.")
-    PrimaryActionButton(text = "Launch in Sandbox", icon = Icons.Filled.RocketLaunch, onClick = {})
    }
   }
  }

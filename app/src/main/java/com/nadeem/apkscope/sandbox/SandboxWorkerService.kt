@@ -33,6 +33,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONObject
@@ -59,6 +61,7 @@ import kotlin.coroutines.resume
 class SandboxWorkerService : Service() {
  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
  private val runningJobs = AtomicInteger(0)
+ private val installMutex = Mutex()
  private val admin get() = ComponentName(this, SandboxAdminReceiver::class.java)
  private val dpm get() = getSystemService(DevicePolicyManager::class.java)
  private val evidenceStore by lazy { WorkEvidenceStore(this) }
@@ -103,6 +106,7 @@ class SandboxWorkerService : Service() {
 	     CrossProfileContract.ACTION_SANDBOX_IMPORT_APK -> runPrepareSequence(sessionId, requireNotNull(intent.getStringExtra(EXTRA_APK_PATH)))
 	     CrossProfileContract.ACTION_PATCHED_APK_INSTALL -> runPatchedApkInstall(sessionId, requireNotNull(intent.getStringExtra(EXTRA_APK_PATH)))
 	     CrossProfileContract.ACTION_CONTINUE_INSTALL -> runContinueInstall(sessionId, intent.getIntExtra(EXTRA_INSTALL_SESSION_ID, -1))
+     CrossProfileContract.ACTION_REINSTALL -> runReinstall(sessionId, intent.getIntExtra(EXTRA_INSTALL_SESSION_ID, -1))
      CrossProfileContract.ACTION_END_SESSION -> runEndSessionSequence(sessionId, requireNotNull(intent.getStringExtra(EXTRA_PACKAGE_NAME)))
      CrossProfileContract.ACTION_ACK_RUNTIME_ARTIFACT -> runAckRuntimeArtifact(sessionId)
      CrossProfileContract.ACTION_ACK_ANDROID_EVIDENCE -> runAckAndroidEvidence(sessionId)
@@ -248,6 +252,7 @@ class SandboxWorkerService : Service() {
   }
   PackageInstallerDiagnostics.log("openWrite+fsync completed installSessionId=$installSessionId bytes=${apkFile.length()}")
   getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+   .putString("apk_$sessionId", apkPath)
    .putString("session_$installSessionId", sessionId)
    .putString("package_$installSessionId", targetPackage)
    .apply()
@@ -257,6 +262,7 @@ class SandboxWorkerService : Service() {
 
  /** Item 8: the deferred half — only reached once the personal-side user has tapped "Continue Installation". Committing here is what actually shows Android's system confirmation UI. */
  private suspend fun runContinueInstall(sessionId: String, installSessionId: Int) {
+  installMutex.withLock {
   if (installSessionId < 0) {
    report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "The installation could not be resumed.", "missing installSessionId", Recoverability.TERMINAL)))
    return
@@ -292,6 +298,92 @@ class SandboxWorkerService : Service() {
    PackageInstallerDiagnostics.log("commit threw installSessionId=$installSessionId detail=$e")
    report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "The installation could not be started.", e.toString(), Recoverability.RETRYABLE)), targetPackage)
   }
+  }
+ }
+
+ /**
+  * Replaces a stale or already-sealed PackageInstaller session with a fresh session built from
+  * the APK retained for this sandbox. Android does not reliably allow a previously committed
+  * session to be committed again, so a retry must abandon the old session and stage/commit a new
+  * one. The personal screen stays on this route throughout; only INSTALLED ends the retry state.
+  */
+ private suspend fun runReinstall(sessionId: String, previousInstallSessionId: Int) {
+  installMutex.withLock {
+  val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+  val apkPath = prefs.getString("apk_$sessionId", null)
+  val apkFile = apkPath?.let(::File)
+  if (apkFile == null || !apkFile.exists()) {
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+    error = SandboxError(SandboxErrorCode.TEMP_APK_MISSING, "The APK copy for this session is no longer available.", "work-side path=$apkPath", Recoverability.RETRYABLE)))
+   return@withLock
+  }
+
+  @Suppress("DEPRECATION")
+  val targetPackage = packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)?.packageName
+  if (targetPackage == null) {
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+    error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "This file could not be read as an APK.", "getPackageArchiveInfo returned null", Recoverability.RETRYABLE)))
+   return@withLock
+  }
+  if (previousInstallSessionId >= 0) {
+   packageManager.packageInstaller.getSessionInfo(previousInstallSessionId)?.let {
+    packageManager.packageInstaller.abandonSession(previousInstallSessionId)
+   }
+   getSystemService(NotificationManager::class.java).cancel(SandboxInstallResultReceiver.NOTIFICATION_ID_INSTALL)
+   prefs.edit().remove("pending_$previousInstallSessionId").remove("session_$previousInstallSessionId").remove("package_$previousInstallSessionId").apply()
+  }
+  try {
+   // Reconciliation will also verify this, but this avoids staging a duplicate install when the
+   // callback arrived and only the personal-side report was lost.
+   @Suppress("DEPRECATION")
+   val installed = packageManager.getPackageInfo(targetPackage, 0)
+   val versionCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.INSTALLED, installedVersionCode = versionCode), targetPackage)
+   return@withLock
+  } catch (_: PackageManager.NameNotFoundException) {
+   // Not installed: continue with a fresh PackageInstaller session.
+  }
+
+  ensureWorkProfilePermissions()
+  if (!InstallConfirmationAvailability.available(this)) {
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+    error = SandboxError(SandboxErrorCode.INSTALL_FAILED,
+     "Enable APK Scope notifications in the Work Profile app settings, then tap Reinstall again.",
+     "installation confirmation notification unavailable", Recoverability.REQUIRES_USER_ACTION)), targetPackage)
+   return@withLock
+  }
+
+  val installer = packageManager.packageInstaller
+  val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+  if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+  val installSessionId = installer.createSession(params)
+  try {
+   installer.openSession(installSessionId).use { session ->
+    session.openWrite("base.apk", 0, apkFile.length()).use { out ->
+     apkFile.inputStream().use { it.copyTo(out) }
+     session.fsync(out)
+    }
+   }
+   prefs.edit()
+    .putString("session_$installSessionId", sessionId)
+    .putString("package_$installSessionId", targetPackage)
+    .apply()
+   val callback = PendingIntent.getBroadcast(
+    this,
+    installSessionId,
+    Intent(this, SandboxInstallResultReceiver::class.java).setAction(SandboxInstallResultReceiver.ACTION_INSTALL_RESULT),
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+   )
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.INSTALLING, installSessionId = installSessionId), targetPackage)
+   installer.openSession(installSessionId).use { session -> session.commit(callback.intentSender) }
+   PackageInstallerDiagnostics.log("reinstall commit invoked previous=$previousInstallSessionId new=$installSessionId session=$sessionId package=$targetPackage")
+  } catch (e: Exception) {
+   installer.getSessionInfo(installSessionId)?.let { installer.abandonSession(installSessionId) }
+   prefs.edit().remove("session_$installSessionId").remove("package_$installSessionId").apply()
+   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+    error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "The installation could not be restarted.", e.toString(), Recoverability.RETRYABLE)), targetPackage)
+  }
+ }
  }
 
  /** Items 13/14/15/16: stop the sandboxed app, clear its data (waiting for the real completion callback), then request its removal — every step requires real, supported Android/user interaction, never automated. */

@@ -10,7 +10,8 @@ object InstallLifecycle {
   else -> Outcome.FAILED
  }
  fun interrupted(state: SandboxSessionState, packagePresent: Boolean, installerSessionPresent: Boolean): Boolean =
-  state == SandboxSessionState.INSTALLING && !packagePresent && !installerSessionPresent
+  state in setOf(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLING) &&
+   !packagePresent && !installerSessionPresent
  fun confirmationAvailable(permissionGranted: Boolean, notificationsEnabled: Boolean, channelEnabled: Boolean): Boolean =
   permissionGranted && notificationsEnabled && channelEnabled
 }

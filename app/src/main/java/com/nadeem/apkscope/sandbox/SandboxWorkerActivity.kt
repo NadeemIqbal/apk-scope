@@ -40,6 +40,11 @@ class SandboxWorkerActivity : ImportActivity() {
     intent.putExtra(SandboxWorkerService.EXTRA_INSTALL_SESSION_ID, json.getInt("installSessionId"))
     importedFile.delete()
    }
+   CrossProfileContract.ACTION_REINSTALL -> {
+    val json = JSONObject(importedFile.readText())
+    intent.putExtra(SandboxWorkerService.EXTRA_INSTALL_SESSION_ID, json.optInt("installSessionId", -1))
+    importedFile.delete()
+   }
    CrossProfileContract.ACTION_END_SESSION -> {
     val json = JSONObject(importedFile.readText())
     intent.putExtra(SandboxWorkerService.EXTRA_PACKAGE_NAME, json.getString("packageName"))

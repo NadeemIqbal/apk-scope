@@ -8,12 +8,12 @@ import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import java.util.Date
 import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
+import org.apache.commons.compress.archivers.zip.Zip64Mode
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
-import java.io.FilterOutputStream
-import java.io.OutputStream
 import java.util.zip.CRC32
 import java.util.zip.ZipFile
 import javax.security.auth.x500.X500Principal
@@ -109,159 +109,151 @@ class ReVancedApkRepacker(private val context: Context) {
         }
         val nextClassesDexName = if (maxClassesDexIndex == 0) "classes.dex" else "classes${maxClassesDexIndex + 1}.dex"
 
-        try {
-            val loaderDex = context.assets.open("frida_loader.dex").readBytes()
-            finalFileInjections[nextClassesDexName] = loaderDex
-            Log.i(TAG, "Injecting FridaLoaderFactory as $nextClassesDexName")
+        // Fail-safe: the manifest patch below rewrites android:appComponentFactory to name
+        // com.nadeem.apkscope.FridaLoaderFactory, and this dex is the ONLY thing that delivers
+        // that class into the target. The two must be atomic. If the loader dex cannot be
+        // obtained, abort the whole repack — never emit an APK whose manifest names a class
+        // that lives in no dex, which crashes at launch (ClassNotFoundException in
+        // LoadedApk.createAppFactory) before any app code runs. The dex is built from source
+        // by the :app:generateFridaLoaderDex Gradle task and packaged into app assets.
+        val loaderDex: ByteArray = try {
+            context.assets.open("frida_loader.dex").use { it.readBytes() }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load frida_loader.dex from assets", e)
+            throw IllegalStateException(
+                "frida_loader.dex is missing from app assets — the Frida loader was not built " +
+                    "into this build, so the AppComponentFactory class cannot be injected. " +
+                    "Rebuild the app (the :app:generateFridaLoaderDex task produces it). " +
+                    "Refusing to patch the manifest and ship a launch-crashing APK.",
+                e,
+            )
         }
+        // Validate the DEX magic ("dex\n") so a truncated or wrong asset fails here, loudly,
+        // rather than producing an APK the platform rejects or that crashes at launch.
+        require(
+            loaderDex.size >= 8 &&
+                loaderDex[0] == 'd'.code.toByte() &&
+                loaderDex[1] == 'e'.code.toByte() &&
+                loaderDex[2] == 'x'.code.toByte() &&
+                loaderDex[3] == 0x0a.toByte()
+        ) {
+            "frida_loader.dex is present but is not a valid DEX file (bad magic); refusing to inject."
+        }
+        finalFileInjections[nextClassesDexName] = loaderDex
+        Log.i(TAG, "Injecting FridaLoaderFactory as $nextClassesDexName (${loaderDex.size} bytes)")
 
         ZipFile(inputApk).use { zipFile ->
-            val fos = outputApk.outputStream()
-            val countingOut = CountingOutputStream(fos)
-            ZipOutputStream(countingOut).use { zipOutput ->
-                zipOutput.setMethod(ZipOutputStream.DEFLATED)
+            // Apache commons-compress writes with random access to the output file, so it back-
+            // patches each entry's sizes/CRC into the local header instead of appending a ZIP data
+            // descriptor. java.util.zip.ZipOutputStream cannot do this — it sets general-purpose
+            // flag bit 3 (data descriptor) on every DEFLATED entry, and Android's XML asset loader
+            // (nativeOpenXmlAsset) then rejects such entries as "Corrupt XML binary file" even when
+            // the AXML is valid. commons-compress reproduces exactly what aapt emits.
+            ZipArchiveOutputStream(outputApk).use { zipOutput ->
+                zipOutput.setUseZip64(Zip64Mode.AsNeeded)
                 zipOutput.setLevel(9)
+                // Entry names are ASCII; do NOT set general-purpose flag bit 11 (UTF-8/EFS).
+                // Android's XML asset loader rejects res/xml entries whose flag bits differ from
+                // what aapt emits (0x0000). With this off + DEFLATED-without-data-descriptor
+                // (commons-compress back-patches sizes), repacked entries match aapt exactly.
+                zipOutput.setUseLanguageEncodingFlag(false)
+                zipOutput.setCreateUnicodeExtraFields(ZipArchiveOutputStream.UnicodeExtraFieldPolicy.NEVER)
 
                 val entries = zipFile.entries()
                 while (entries.hasMoreElements()) {
                     val entry = entries.nextElement()
-                    // Skip entries being replaced by injections, and strip old META-INF signatures
-                    val isSignatureFile = entry.name.startsWith("META-INF/") && 
+                    // Skip entries being replaced by injections, and strip old META-INF signatures.
+                    val isSignatureFile = entry.name.startsWith("META-INF/") &&
                         (entry.name.endsWith(".SF") || entry.name.endsWith(".RSA") || entry.name.endsWith(".DSA") || entry.name.endsWith(".EC") || entry.name.endsWith(".MF"))
-                    
-                    if (!isSignatureFile && !finalFileInjections.containsKey(entry.name) && !writtenEntries.contains(entry.name)) {
-                        if (entry.name == "AndroidManifest.xml") {
-                            val manifestBytes = zipFile.getInputStream(entry).readBytes()
-                            val modifiedManifest = try {
-                                val manifest = com.reandroid.arsc.chunk.xml.AndroidManifestBlock.load(
-                                    java.io.ByteArrayInputStream(manifestBytes)
-                                )
-                                val appElement = manifest.applicationElement
-                                if (appElement != null) {
-                                    // Preserve existing factory for delegation if present
-                                    val existingFactoryAttr = appElement.searchAttributeByResourceId(0x0101057a)
-                                        ?: appElement.searchAttributeByName("appComponentFactory")
-                                    val existingFactory = existingFactoryAttr?.valueAsString
-                                    if (!existingFactory.isNullOrBlank() && existingFactory != "com.nadeem.apkscope.FridaLoaderFactory") {
-                                        Log.i(TAG, "Preserving existing appComponentFactory: $existingFactory")
-                                        finalFileInjections["assets/poc_orig_factory.txt"] = existingFactory.toByteArray(Charsets.UTF_8)
-                                    }
+                    if (isSignatureFile || finalFileInjections.containsKey(entry.name) || writtenEntries.contains(entry.name)) {
+                        continue
+                    }
 
-                                    val attr = appElement.getOrCreateAndroidAttribute("appComponentFactory", 0x0101057a)
-                                    attr.setValueAsString("com.nadeem.apkscope.FridaLoaderFactory")
-                                    
-                                    val extractAttr = appElement.getOrCreateAndroidAttribute("extractNativeLibs", 0x010104ea)
-                                    extractAttr.setValueAsBoolean(true)
-
-                                    manifest.refresh()
-                                    Log.i(TAG, "Successfully injected AppComponentFactory and extractNativeLibs into AndroidManifest.xml")
-                                    manifest.bytes
-                                } else {
-                                    Log.w(TAG, "No <application> tag found in AndroidManifest.xml")
-                                    manifestBytes
+                    if (entry.name == "AndroidManifest.xml") {
+                        val manifestBytes = zipFile.getInputStream(entry).readBytes()
+                        val modifiedManifest = try {
+                            val manifest = com.reandroid.arsc.chunk.xml.AndroidManifestBlock.load(
+                                java.io.ByteArrayInputStream(manifestBytes)
+                            )
+                            val appElement = manifest.applicationElement
+                            if (appElement != null) {
+                                // Preserve existing factory for delegation if present.
+                                val existingFactoryAttr = appElement.searchAttributeByResourceId(0x0101057a)
+                                    ?: appElement.searchAttributeByName("appComponentFactory")
+                                val existingFactory = existingFactoryAttr?.valueAsString
+                                if (!existingFactory.isNullOrBlank() && existingFactory != "com.nadeem.apkscope.FridaLoaderFactory") {
+                                    Log.i(TAG, "Preserving existing appComponentFactory: $existingFactory")
+                                    finalFileInjections["assets/poc_orig_factory.txt"] = existingFactory.toByteArray(Charsets.UTF_8)
                                 }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to parse AndroidManifest.xml with ARSCLib: ${e.message}", e)
+
+                                val attr = appElement.getOrCreateAndroidAttribute("appComponentFactory", 0x0101057a)
+                                attr.setValueAsString("com.nadeem.apkscope.FridaLoaderFactory")
+
+                                val extractAttr = appElement.getOrCreateAndroidAttribute("extractNativeLibs", 0x010104ea)
+                                extractAttr.setValueAsBoolean(true)
+
+                                manifest.refresh()
+                                Log.i(TAG, "Successfully injected AppComponentFactory and extractNativeLibs into AndroidManifest.xml")
+                                manifest.bytes
+                            } else {
+                                Log.w(TAG, "No <application> tag found in AndroidManifest.xml")
                                 manifestBytes
                             }
-                            
-                            val newEntry = ZipEntry("AndroidManifest.xml")
-                            newEntry.method = ZipEntry.DEFLATED
-                            zipOutput.putNextEntry(newEntry)
-                            zipOutput.write(modifiedManifest)
-                            zipOutput.closeEntry()
-                            writtenEntries.add("AndroidManifest.xml")
-                            continue
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse AndroidManifest.xml with ARSCLib: ${e.message}", e)
+                            manifestBytes
                         }
-
-                        if (entry.name == "resources.arsc") {
-                            // Android 11+ (R+) requires resources.arsc to be STORED and 4-byte aligned
-                            val arscBytes = zipFile.getInputStream(entry).readBytes()
-                            val crc = CRC32().apply { update(arscBytes) }.value
-
-                            val newEntry = ZipEntry("resources.arsc")
-                            newEntry.method = ZipEntry.STORED
-                            newEntry.size = arscBytes.size.toLong()
-                            newEntry.compressedSize = arscBytes.size.toLong()
-                            newEntry.crc = crc
-
-                            val currentOffset = countingOut.count
-                            val nameBytes = "resources.arsc".toByteArray(Charsets.UTF_8)
-                            val headerLen = 30 + nameBytes.size
-                            val padding = ((4 - ((currentOffset + headerLen) % 4)) % 4).toInt()
-                            if (padding > 0) {
-                                newEntry.extra = ByteArray(padding)
-                            }
-
-                            zipOutput.putNextEntry(newEntry)
-                            zipOutput.write(arscBytes)
-                            zipOutput.closeEntry()
-                            writtenEntries.add("resources.arsc")
-                            continue
-                        }
-
-                        val newEntry = ZipEntry(entry.name)
-                        newEntry.method = entry.method
-                        if (entry.method == ZipEntry.STORED) {
-                            newEntry.size = entry.size
-                            newEntry.compressedSize = entry.compressedSize
-                            newEntry.crc = entry.crc
-
-                            val currentOffset = countingOut.count
-                            val nameBytes = entry.name.toByteArray(Charsets.UTF_8)
-                            val headerLen = 30 + nameBytes.size
-                            val padding = ((4 - ((currentOffset + headerLen) % 4)) % 4).toInt()
-                            if (padding > 0) {
-                                newEntry.extra = ByteArray(padding)
-                            }
-                        }
-
-                        zipOutput.putNextEntry(newEntry)
-
-                        // Copy entry data
-                        zipFile.getInputStream(entry).use { zipInput ->
-                            val buffer = ByteArray(8192)
-                            var bytesRead: Int
-                            while (zipInput.read(buffer).also { bytesRead = it } != -1) {
-                                zipOutput.write(buffer, 0, bytesRead)
-                            }
-                        }
-                        zipOutput.closeEntry()
-                        writtenEntries.add(entry.name)
+                        writeDeflated(zipOutput, "AndroidManifest.xml", modifiedManifest)
+                        writtenEntries.add("AndroidManifest.xml")
+                        continue
                     }
+
+                    if (entry.name == "resources.arsc") {
+                        // Android 11+ requires resources.arsc to be STORED and 4-byte aligned.
+                        val arscBytes = zipFile.getInputStream(entry).use { it.readBytes() }
+                        writeStoredAligned(zipOutput, "resources.arsc", arscBytes)
+                        writtenEntries.add("resources.arsc")
+                        continue
+                    }
+
+                    // Preserve the original compression method. STORED entries (uncompressed dex/so
+                    // the platform mmaps) are re-stored and 4-byte aligned; everything else is
+                    // DEFLATED — with no data descriptor, thanks to commons-compress.
+                    val data = zipFile.getInputStream(entry).use { it.readBytes() }
+                    if (entry.method == ZipEntry.STORED) {
+                        writeStoredAligned(zipOutput, entry.name, data)
+                    } else {
+                        writeDeflated(zipOutput, entry.name, data)
+                    }
+                    writtenEntries.add(entry.name)
                 }
 
-                // Add injected files (new or replacement entries)
+                // Injected / replacement entries (loader dex, gadget libs, scripts, NSC).
                 for ((path, content) in finalFileInjections) {
-                    if (!writtenEntries.contains(path)) {
-                        val newEntry = ZipEntry(path)
-                        newEntry.method = ZipEntry.DEFLATED
-
-                        zipOutput.putNextEntry(newEntry)
-                        zipOutput.write(content)
-                        zipOutput.closeEntry()
-                        writtenEntries.add(path)
-                    }
+                    if (writtenEntries.contains(path)) continue
+                    writeDeflated(zipOutput, path, content)
+                    writtenEntries.add(path)
                 }
             }
         }
     }
 
-    private class CountingOutputStream(out: OutputStream) : FilterOutputStream(out) {
-        var count: Long = 0
-            private set
+    private fun writeDeflated(zipOutput: ZipArchiveOutputStream, name: String, content: ByteArray) {
+        val entry = ZipArchiveEntry(name)
+        entry.method = ZipArchiveEntry.DEFLATED
+        zipOutput.putArchiveEntry(entry)
+        zipOutput.write(content)
+        zipOutput.closeArchiveEntry()
+    }
 
-        override fun write(b: Int) {
-            out.write(b)
-            count++
-        }
-
-        override fun write(b: ByteArray, off: Int, len: Int) {
-            out.write(b, off, len)
-            count += len.toLong()
-        }
+    private fun writeStoredAligned(zipOutput: ZipArchiveOutputStream, name: String, content: ByteArray) {
+        val entry = ZipArchiveEntry(name)
+        entry.method = ZipArchiveEntry.STORED
+        entry.size = content.size.toLong()
+        entry.crc = CRC32().apply { update(content) }.value
+        entry.setAlignment(4)
+        zipOutput.putArchiveEntry(entry)
+        zipOutput.write(content)
+        zipOutput.closeArchiveEntry()
     }
 
     private fun signApkWithApksig(

@@ -24,7 +24,8 @@ import java.util.UUID
  * `SpikeImportActivity`; giving the production flow the exact same action would make two activities
  * match the identical action+data-type filter and force Android to show a disambiguation chooser
  * instead of delivering automatically (item 25's "production must not route through/collide with
- * the retained spike surface"). [ACTION_END_SESSION] and [ACTION_CONTINUE_INSTALL] (personal→work,
+ * the retained spike surface"). [ACTION_END_SESSION], [ACTION_CONTINUE_INSTALL], and
+ * [ACTION_REINSTALL] (personal→work,
  * same direction) each carry a tiny JSON control file identifying which session to act on;
  * [ACTION_SANDBOX_READY]/[ACTION_SANDBOX_ERROR] (work→personal, same direction as
  * [ACTION_REPORT_READY]) — declared since checkpoint 1 but never actually registered in
@@ -40,6 +41,7 @@ object CrossProfileContract {
     const val ACTION_SANDBOX_ERROR = "com.nadeem.apkscope.action.SANDBOX_ERROR"
     const val ACTION_END_SESSION = "com.nadeem.apkscope.action.END_SESSION"
     const val ACTION_CONTINUE_INSTALL = "com.nadeem.apkscope.action.CONTINUE_INSTALL"
+    const val ACTION_REINSTALL = "com.nadeem.apkscope.action.REINSTALL"
     /**
      * Checkpoint 4.1: the one personal→work **query** action, always launched with
      * `startActivityForResult` from a foreground Personal Activity — never pushed from a background
@@ -103,6 +105,7 @@ object Handoff {
 	   CrossProfileContract.ACTION_PATCHED_APK_INSTALL to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
 	   CrossProfileContract.ACTION_END_SESSION to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
    CrossProfileContract.ACTION_CONTINUE_INSTALL to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
+   CrossProfileContract.ACTION_REINSTALL to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
    CrossProfileContract.ACTION_SANDBOX_READY to DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
    CrossProfileContract.ACTION_SANDBOX_ERROR to DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
    // Checkpoint 4.1: personal→work query/result round trip (see CrossProfileContract.ACTION_WORK_QUERY).
@@ -228,7 +231,7 @@ object Handoff {
  * than hardcoded, since this module has no fixed applicationId of its own.
  *
  * Checkpoint 4 broadens which actions are legal on which side: [CrossProfileContract.ACTION_END_SESSION]/
- * [CrossProfileContract.ACTION_CONTINUE_INSTALL] join [CrossProfileContract.ACTION_IMPORT_APK] as
+ * [CrossProfileContract.ACTION_CONTINUE_INSTALL]/[CrossProfileContract.ACTION_REINSTALL] join [CrossProfileContract.ACTION_IMPORT_APK] as
  * work-side actions (a small JSON control file, not an APK, for the two new ones), and
  * [CrossProfileContract.ACTION_SANDBOX_READY]/[CrossProfileContract.ACTION_SANDBOX_ERROR] join
  * [CrossProfileContract.ACTION_REPORT_READY] as personal-side actions (all three are small JSON
@@ -237,7 +240,7 @@ object Handoff {
  * longer identifies a single meaning once there are three different work-side actions.
  */
 open class ImportActivity:Activity() {
- private val workActions = setOf(CrossProfileContract.ACTION_IMPORT_APK, CrossProfileContract.ACTION_SANDBOX_IMPORT_APK, CrossProfileContract.ACTION_PATCHED_APK_INSTALL, CrossProfileContract.ACTION_END_SESSION, CrossProfileContract.ACTION_CONTINUE_INSTALL, CrossProfileContract.ACTION_ACK_RUNTIME_ARTIFACT, CrossProfileContract.ACTION_ACK_ANDROID_EVIDENCE)
+ private val workActions = setOf(CrossProfileContract.ACTION_IMPORT_APK, CrossProfileContract.ACTION_SANDBOX_IMPORT_APK, CrossProfileContract.ACTION_PATCHED_APK_INSTALL, CrossProfileContract.ACTION_END_SESSION, CrossProfileContract.ACTION_CONTINUE_INSTALL, CrossProfileContract.ACTION_REINSTALL, CrossProfileContract.ACTION_ACK_RUNTIME_ARTIFACT, CrossProfileContract.ACTION_ACK_ANDROID_EVIDENCE)
  private val personalActions = setOf(CrossProfileContract.ACTION_REPORT_READY, CrossProfileContract.ACTION_SANDBOX_READY, CrossProfileContract.ACTION_SANDBOX_ERROR)
  private val apkActions = setOf(CrossProfileContract.ACTION_IMPORT_APK, CrossProfileContract.ACTION_SANDBOX_IMPORT_APK, CrossProfileContract.ACTION_PATCHED_APK_INSTALL)
 

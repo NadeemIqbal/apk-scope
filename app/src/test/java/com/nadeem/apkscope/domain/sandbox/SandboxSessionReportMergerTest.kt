@@ -101,6 +101,14 @@ class SandboxSessionReportMergerTest {
   assertNull(SandboxSessionReportMerger.safeTransition(session(SandboxSessionState.CREATED), SandboxSessionState.READY))
  }
 
+ @Test fun installedReportRecoversWaitingSessionWhenInstallingReportWasLost() {
+  val next = SandboxSessionReportMerger.safeTransition(
+   session(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION),
+   SandboxSessionState.INSTALLED,
+  )
+  assertEquals(SandboxSessionState.INSTALLED, next?.state)
+ }
+
  /**
   * Regression test for the "APK too large for the cross-profile handoff" bug (confirmed on-device: a
   * real 131 MiB APK exceeding the handoff's old 128 MiB limit): before the fix, the copy failure was

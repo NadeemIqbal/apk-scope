@@ -392,13 +392,37 @@ class SandboxWorkQueryActivity : Activity() {
    )
    report = store.getReport(sessionId) ?: report.copy(enforcements = report.enforcements + liveVpn)
   }
-  if (report?.state == com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLING && !packageName.isNullOrEmpty()) {
+  if (report?.state in setOf(
+    com.nadeem.apkscope.core.model.SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+    com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLING,
+   ) && !packageName.isNullOrEmpty()) {
    val present = try { packageManager.getPackageInfo(packageName, 0); true }
     catch (_: android.content.pm.PackageManager.NameNotFoundException) { false }
    val sessions = packageManager.packageInstaller.mySessions
    val active = sessions.any { it.sessionId == report?.installSessionId }
-   PackageInstallerDiagnostics.log("reconcile session=$sessionId packagePresent=$present mySessions=${sessions.map { it.sessionId }}")
-   if (com.nadeem.apkscope.core.model.InstallLifecycle.interrupted(report!!.state, present, active)) {
+   PackageInstallerDiagnostics.log("reconcile session=$sessionId state=${report?.state} packagePresent=$present mySessions=${sessions.map { it.sessionId }}")
+   if (present) {
+    @Suppress("DEPRECATION")
+    val installedVersionCode = try {
+     val info = packageManager.getPackageInfo(packageName, 0)
+     if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    } catch (_: PackageManager.NameNotFoundException) {
+     null
+    }
+    // A successful package-presence read is the authoritative fallback when the transient
+    // INSTALLING report or final PackageInstaller callback was lost.
+    store.recordFact(
+     sessionId,
+     packageName,
+     SandboxStatusReport(
+      sessionId,
+      com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLED,
+      installSessionId = report?.installSessionId,
+      installedVersionCode = installedVersionCode,
+     ),
+    )
+    report = store.getReport(sessionId)
+   } else if (com.nadeem.apkscope.core.model.InstallLifecycle.interrupted(report!!.state, present, active)) {
     // Only authoritative absence in this Work user permits interruption recovery.
     val patch = SandboxStatusReport(sessionId, com.nadeem.apkscope.core.model.SandboxSessionState.FAILED,
      error = com.nadeem.apkscope.core.model.SandboxError(com.nadeem.apkscope.core.model.SandboxErrorCode.INSTALL_USER_CANCELLED,

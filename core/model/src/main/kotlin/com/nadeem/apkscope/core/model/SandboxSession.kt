@@ -65,6 +65,9 @@ object SandboxStateMachine {
   SandboxSessionState.CLEARING_DATA to setOf(SandboxSessionState.CLEANUP_REQUIRED),
   SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION to setOf(SandboxSessionState.CLEANUP_REQUIRED),
   SandboxSessionState.CLEANUP to setOf(SandboxSessionState.CLEANUP_REQUIRED),
+  // INSTALLING is a transient Work-side report. If that report is lost while Android finishes
+  // the confirmation flow, package presence is the authoritative install confirmation.
+  SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION to setOf(SandboxSessionState.INSTALLED),
   SandboxSessionState.CLEANUP_REQUIRED to setOf(SandboxSessionState.CLEANUP, SandboxSessionState.COMPLETED),
  )
 

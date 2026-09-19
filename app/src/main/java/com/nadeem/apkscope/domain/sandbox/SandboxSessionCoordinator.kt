@@ -50,6 +50,7 @@ interface SandboxSessionCoordinator {
 
     suspend fun prepare(activity: Activity, sessionId: String): SandboxOperationResult
     suspend fun continueInstallation(activity: Activity, sessionId: String): SandboxOperationResult
+    suspend fun reinstall(activity: Activity, sessionId: String): SandboxOperationResult
 
     /** Checkpoint 4.1 §9: now takes an [Activity] — launching requires a *fresh* cross-profile tunnel verification (see [NetworkIsolationVerifier]), not merely reading [SandboxSession.enforcementResults]. */
     suspend fun launch(activity: Activity, sessionId: String): SandboxOperationResult
@@ -398,6 +399,55 @@ class DefaultSandboxSessionCoordinator(
                 "Could not continue installation.",
                 e.toString(),
                 Recoverability.RETRYABLE
+            )
+        }
+    }
+
+    override suspend fun reinstall(
+        activity: Activity,
+        sessionId: String
+    ): SandboxOperationResult {
+        val session = repository.get(sessionId) ?: return notFound(sessionId)
+        if (session.state == SandboxSessionState.INSTALLED || session.state == SandboxSessionState.READY) {
+            return SandboxOperationResult.Success(session)
+        }
+        val retryableInstallStates = setOf(
+            SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+            SandboxSessionState.INSTALLING,
+        )
+        val retryableErrorCodes = setOf(
+            SandboxErrorCode.INSTALL_FAILED,
+            SandboxErrorCode.INSTALL_USER_CANCELLED,
+            SandboxErrorCode.PACKAGE_MISMATCH,
+        )
+        if (session.state !in retryableInstallStates && session.error?.code !in retryableErrorCodes) {
+            return SandboxOperationResult.Success(session)
+        }
+
+        return try {
+            val controlFile =
+                File(context.filesDir, "sandbox/control/$sessionId-reinstall.json").apply {
+                    parentFile?.mkdirs()
+                    writeText(
+                        JSONObject().put("sessionId", sessionId)
+                            .put("installSessionId", session.installSessionId ?: -1).toString()
+                    )
+                }
+            Handoff.send(
+                activity,
+                controlFile,
+                CrossProfileContract.ACTION_REINSTALL,
+                sessionId,
+                SANDBOX_FILE_PROVIDER_AUTHORITY,
+            )
+            SandboxOperationResult.Success(session)
+        } catch (e: Exception) {
+            failClosed(
+                session,
+                SandboxErrorCode.HANDOFF_FAILED,
+                "Could not restart installation.",
+                e.toString(),
+                Recoverability.RETRYABLE,
             )
         }
     }

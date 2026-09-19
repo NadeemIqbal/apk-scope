@@ -9,6 +9,7 @@ dependencyResolutionManagement {
 }
 rootProject.name = "apk-scope"
 include(":app")
+include(":payload:fridaloader")
 include(":fixture")
 include(":riskfixture")
 include(":obfuscatedfixture")

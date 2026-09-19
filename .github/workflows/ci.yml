@@ -52,6 +52,37 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: ./gradlew assembleRelease
 
+      - name: Sign release APK for sideloading
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          apk_path="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$apk_path"
+          debug_keystore="$HOME/.android/debug.keystore"
+          if [ ! -f "$debug_keystore" ]; then
+            mkdir -p "$(dirname "$debug_keystore")"
+            keytool -genkeypair -v \
+              -keystore "$debug_keystore" \
+              -storepass android \
+              -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner_path"
+          signed_apk="${apk_path}.signed"
+          "$apksigner_path" sign \
+            --ks "$debug_keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$signed_apk" \
+            "$apk_path"
+          "$apksigner_path" verify "$signed_apk"
+          mv "$signed_apk" "$apk_path"
+
       - name: Upload Release APK
         if: github.event_name == 'workflow_dispatch' && success()
         uses: actions/upload-artifact@v4

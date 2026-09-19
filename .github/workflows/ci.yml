@@ -57,3 +57,46 @@ jobs:
           name: app-release-unsigned
           path: app/build/outputs/apk/release/*.apk
           retention-days: 7
+
+  update-release:
+    name: Update GitHub Release
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: release-assets
+
+      - name: Create or update versioned GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version_name="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$version_name"
+          release_tag="v${version_name}"
+          apk_path="$(find release-assets -type f -name '*.apk' -print -quit)"
+          test -n "$apk_path"
+          release_apk="release-assets/APK-Scope-${release_tag}.apk"
+          mv "$apk_path" "$release_apk"
+
+          if gh release view "$release_tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$release_tag" "$release_apk" --repo "$GH_REPO" --clobber
+            gh release edit "$release_tag" --repo "$GH_REPO" \
+              --title "APK Scope ${release_tag}" \
+              --notes "Automated build from commit ${GITHUB_SHA}."
+          else
+            gh release create "$release_tag" "$release_apk" --repo "$GH_REPO" \
+              --target "$GITHUB_SHA" \
+              --title "APK Scope ${release_tag}" \
+              --notes "Automated build from commit ${GITHUB_SHA}."
+          fi

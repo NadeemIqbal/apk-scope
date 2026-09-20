@@ -131,6 +131,7 @@ jobs:
                 test -z "$old_apk" || gh release delete-asset "$release_tag" "$old_apk" --repo "$GH_REPO" --yes
               done
             gh release edit "$release_tag" --repo "$GH_REPO" \
+              --target "$GITHUB_SHA" \
               --title "APK Scope ${release_tag}" \
               --notes "Automated build from commit ${GITHUB_SHA}."
           else

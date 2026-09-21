@@ -78,7 +78,7 @@ private val quickCommands = listOf(
     QuickFridaCommand(
         label = "Java classes",
         description = "Show the first 200 classes already loaded in the target VM.",
-        source = "Java.available ? Java.enumerateLoadedClassesSync().slice(0, 200) : []",
+        source = "typeof Java !== 'undefined' && Java.available ? Java.enumerateLoadedClassesSync().slice(0, 200) : []",
     ),
 )
 

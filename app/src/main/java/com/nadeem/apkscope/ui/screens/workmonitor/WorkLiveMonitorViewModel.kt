@@ -69,7 +69,7 @@ class WorkLiveMonitorViewModel(application: Application, private val sessionId: 
    }
   }
   viewModelScope.launch {
-   FridaTrafficMonitor.shared.start(sessionId, packageName)
+   FridaTrafficMonitor.shared.start(getApplication<Application>(), sessionId, packageName)
   }
   viewModelScope.launch {
    // Real elapsed time, ticked locally from the VPN service's own recorded session start — not a

@@ -110,7 +110,6 @@ fun HomeScreen(
  val context = LocalContext.current
  val environmentRepository = androidx.compose.runtime.remember { com.nadeem.apkscope.domain.EnvironmentRepository(context.applicationContext) }
  var showSetupDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
- var showModePicker by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
  val provisioningLauncher = rememberLauncherForActivityResult(
   contract = ActivityResultContracts.StartActivityForResult(),
@@ -157,16 +156,7 @@ fun HomeScreen(
    item {
     SelectApkCard(
      isImporting = state.isImporting,
-     showModePicker = showModePicker,
-     onSelect = { showModePicker = true },
-      onCaMode = {
-       showModePicker = false
-       launcher.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream", "*/*"))
-      },
-      onFridaMode = {
-       showModePicker = false
-       onOpenPocRepack()
-      },
+     onSelect = onOpenPocRepack,
     )
    }
    item {
@@ -429,88 +419,41 @@ private fun TelemetryMetric(label: String, value: String, subtext: String) {
 @Composable
 private fun SelectApkCard(
  isImporting: Boolean,
- showModePicker: Boolean,
  onSelect: () -> Unit,
- onCaMode: () -> Unit,
- onFridaMode: () -> Unit,
 ) {
- if (!showModePicker) {
-  BaseCard(containerColor = MaterialTheme.colorScheme.primary) {
-   Text("READY TO ANALYZE", style = MaterialTheme.typography.labelSmall, color = ApkScopeColors.PrimaryContainer)
-   Text(
-    "Inspect an APK in Sandbox",
-    style = MaterialTheme.typography.headlineMedium,
-    color = MaterialTheme.colorScheme.onPrimary,
-   )
-   Spacer(Modifier.height(Spacing.md))
-   Button(
-    onClick = onSelect,
-    enabled = !isImporting,
-    shape = RoundedCornerShape(Radii.md),
-    colors = ButtonDefaults.buttonColors(
-     containerColor = ApkScopeColors.Lime,
-     contentColor = ApkScopeColors.OnLime,
-    ),
-    modifier = Modifier.fillMaxWidth().height(48.dp),
-   ) {
-    if (isImporting) {
-     androidx.compose.material3.CircularProgressIndicator(
-      modifier = Modifier.size(18.dp),
-      color = ApkScopeColors.OnLime,
-      strokeWidth = 2.dp,
-     )
-     Spacer(Modifier.width(Spacing.sm))
-    }
-    Text(if (isImporting) "Importing…" else "Choose APK  →", fontWeight = FontWeight.Bold)
-   }
-  }
-  return
- }
-
- BaseCard(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-   Column(Modifier.weight(1f)) {
-    Text("Select APK", style = MaterialTheme.typography.headlineSmall)
-    Text(
-     if (showModePicker) "Choose how you want to inspect this APK." else "Start with a package file from this device.",
-     style = MaterialTheme.typography.bodySmall,
-     color = MaterialTheme.colorScheme.onSurfaceVariant,
+ BaseCard(containerColor = MaterialTheme.colorScheme.primary) {
+  Text("READY TO INSPECT", style = MaterialTheme.typography.labelSmall, color = ApkScopeColors.PrimaryContainer)
+  Text(
+   "Inspect an APK with Frida",
+   style = MaterialTheme.typography.headlineMedium,
+   color = MaterialTheme.colorScheme.onPrimary,
+  )
+  Spacer(Modifier.height(Spacing.xs))
+  Text(
+   "APK Scope prepares the sandbox and opens a command console for the selected app.",
+   style = MaterialTheme.typography.bodyMedium,
+   color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+  )
+  Spacer(Modifier.height(Spacing.md))
+  Button(
+   onClick = onSelect,
+   enabled = !isImporting,
+   shape = RoundedCornerShape(Radii.md),
+   colors = ButtonDefaults.buttonColors(
+    containerColor = ApkScopeColors.Lime,
+    contentColor = ApkScopeColors.OnLime,
+   ),
+   modifier = Modifier.fillMaxWidth().height(48.dp),
+  ) {
+   if (isImporting) {
+    androidx.compose.material3.CircularProgressIndicator(
+     modifier = Modifier.size(18.dp),
+     color = ApkScopeColors.OnLime,
+     strokeWidth = 2.dp,
     )
+    Spacer(Modifier.width(Spacing.sm))
    }
-   Box(
-    Modifier.size(44.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
-    contentAlignment = Alignment.Center,
-   ) {
-    Icon(Icons.Filled.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-   }
-  }
-  Spacer(Modifier.height(Spacing.base))
-  if (!showModePicker) {
-   PrimaryActionButton(text = if (isImporting) "Importing..." else "Select APK", onClick = onSelect, icon = Icons.Filled.FolderOpen, loading = isImporting)
-   Spacer(Modifier.height(Spacing.sm))
-   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-    Badge("APK", MaterialTheme.colorScheme.onSurfaceVariant, filled = false)
-    Badge("XAPK", MaterialTheme.colorScheme.onSurfaceVariant, filled = false)
-    Badge("APKS", MaterialTheme.colorScheme.onSurfaceVariant, filled = false)
-   }
-  } else {
-   ModeOption(
-    title = "CA Mode",
-    subtitle = "Inspect compatible HTTPS by trusting the Work Profile CA.",
-    badge = "STANDARD",
-    icon = Icons.Filled.Key,
-    color = MaterialTheme.colorScheme.primary,
-    onClick = onCaMode,
-   )
-   Spacer(Modifier.height(Spacing.sm))
-   ModeOption(
-    title = "Frida Mode",
-    subtitle = "Patch/instrument apps with pinning or hostile TLS behavior.",
-    badge = "ANTI-PINNING",
-    icon = Icons.Filled.PrecisionManufacturing,
-    color = MaterialTheme.colorScheme.secondary,
-    onClick = onFridaMode,
-   )
+   Text(if (isImporting) "Starting…" else "Start Frida inspection  →", fontWeight = FontWeight.Bold)
   }
  }
 }
@@ -850,7 +793,7 @@ private fun RecentAnalysisCard(summary: PersistedAnalysisSummary, onClick: () ->
 private fun HomeScreenPreview() {
  ApkScopeTheme {
   Column {
-   SelectApkCard(isImporting = false, showModePicker = false, onSelect = {}, onCaMode = {}, onFridaMode = {})
+   SelectApkCard(isImporting = false, onSelect = {})
   }
  }
 }

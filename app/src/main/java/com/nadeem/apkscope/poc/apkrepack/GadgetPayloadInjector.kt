@@ -48,9 +48,12 @@ class GadgetPayloadInjector(private val context: Context) {
             console.log("Frida Gadget loaded (live capture unavailable)");
             """.trimIndent().toByteArray()
         }
+        // Never embed the channel token in the repacked APK. The Work profile creates and stores
+        // the token after receiving this APK; the injected script obtains it through the
+        // caller-authenticated FridaChannelProvider once the target process starts.
         payload["assets/frida-live-capture.js"] = fridaScript
         payload["assets/poc_gadget_hook.js"] = fridaScript
-        Log.i(TAG, "✓ Added Frida live capture script: ${fridaScript.size} bytes")
+        Log.i(TAG, "✓ Added Frida live capture script without embedded credentials: ${fridaScript.size} bytes")
 
         // 2. Frida Gadget shared library (lib/<abi>/libgadget.so), config and embedded script
         val gadgetConfig = """

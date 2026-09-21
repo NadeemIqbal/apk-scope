@@ -56,14 +56,10 @@ class PocLoaderApplication : Application() {
                     }
                 }
 
-                // Load the Gadget native library
-                // The library should be present in lib/<abi>/libgadget.so after modification
-                try {
-                    System.loadLibrary("gadget")
-                    Log.i("PocLoaderApplication", "Frida Gadget loaded successfully")
-                } catch (e: Exception) {
-                    Log.e("PocLoaderApplication", "Failed to load Gadget library: ${e.message}", e)
-                }
+                // The repacker injects FridaLoaderFactory, which loads Gadget after this
+                // Application has completed its lifecycle. Loading it here from attachBaseContext
+                // starts the script before Frida's Java bridge exists, leaving Java undefined.
+                Log.i("PocLoaderApplication", "Gadget load deferred to injected AppComponentFactory")
             } else {
                 Log.i("PocLoaderApplication", "POC instrumentation marker not found; running unmodified")
             }

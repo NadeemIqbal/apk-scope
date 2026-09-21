@@ -77,19 +77,11 @@ object SandboxEnvironmentPreflight {
  fun computeLaunchReadiness(context: Context, session: SandboxSession): LaunchReadiness {
   val vpnResult = session.enforcementResults.firstOrNull { it.policy == SandboxPolicyType.ALWAYS_ON_VPN_LOCKDOWN }
   val networkIsolationActive = vpnResult?.status == EnforcementStatus.ENFORCED
-  // `installedVersionCode` normally comes from the work-side install-result report, but that
-  // report is a cross-profile `Handoff.send()` fired from a background service/receiver — Android's
-  // background-activity-launch protections can silently drop it (a real platform limitation found
-  // this checkpoint; see V0.1_CHECKPOINT_4.md). `LauncherApps.getApplicationInfo` queried with the
-  // *analyzed* package name is an equally real, independently personal-side-verifiable fallback —
-  // it can only succeed if a package with that exact name is installed in the Work Profile, which
-  // is the same package-match fact item 8 requires, just confirmed a different way.
-  val installedInWork = try {
-   val workHandle = workProfileHandle(context)
-   workHandle != null && context.getSystemService(LauncherApps::class.java)?.getApplicationInfo(session.packageName, 0, workHandle) != null
-  } catch (_: Exception) { false }
   return LaunchReadiness(
-   installationConfirmed = session.installedVersionCode != null || installedInWork,
+   // A package with the same name may be an older APK. Only the current install callback's
+   // version fact is safe to use for this session; package presence alone caused stale Frida
+   // tokens to be accepted as if the new target had been installed.
+   installationConfirmed = session.installedVersionCode != null,
    environmentValid = checkEnvironment(context, session) == null,
    // Camera/microphone/location denial is explicitly non-mandatory (item 5 — a NOT_SUPPORTED
    // sensor-permission denial, the real Pixel 8 finding, must never fail the whole sandbox); the

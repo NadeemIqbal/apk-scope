@@ -49,6 +49,7 @@ import com.nadeem.apkscope.ui.components.BaseCard
 import com.nadeem.apkscope.ui.components.InfoCard
 import com.nadeem.apkscope.ui.components.PolicyStatusRow
 import com.nadeem.apkscope.ui.components.PrimaryActionButton
+import com.nadeem.apkscope.ui.components.SecondaryActionButton
 import com.nadeem.apkscope.ui.components.SectionHeader
 import com.nadeem.apkscope.ui.components.StickyActionBar
 import com.nadeem.apkscope.ui.components.WorkProfileSetupDialog
@@ -67,7 +68,14 @@ import com.nadeem.apkscope.ui.theme.Spacing
  * run during Prepare.
  */
 @Composable
-fun SandboxConfigScreen(sessionId: String, onPrepare: (String, SandboxLifecycleStage) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SandboxConfigScreen(
+ sessionId: String,
+ onPrepare: (String, SandboxLifecycleStage) -> Unit,
+ onViewStaticAnalysis: (String) -> Unit = {},
+ onBack: () -> Unit,
+ modifier: Modifier = Modifier,
+ autoPrepare: Boolean = false,
+) {
  val context = LocalContext.current
  val environmentRepository = remember { EnvironmentRepository(context.applicationContext) }
  var showSetupDialog by remember { mutableStateOf(false) }
@@ -79,6 +87,7 @@ fun SandboxConfigScreen(sessionId: String, onPrepare: (String, SandboxLifecycleS
   isPackageInstalledInPersonal(context, state.packageName)
  }
  var showAlreadyInstalledDialog by remember { mutableStateOf(false) }
+ var autoPrepareRequested by remember(sessionId) { mutableStateOf(false) }
 
  val provisioningLauncher = rememberLauncherForActivityResult(
   contract = ActivityResultContracts.StartActivityForResult(),
@@ -93,15 +102,32 @@ fun SandboxConfigScreen(sessionId: String, onPrepare: (String, SandboxLifecycleS
   state.navigateToSandboxSessionId?.let { onPrepare(it, state.navigateToStage); viewModel.onNavigationConsumed() }
  }
 
+ // Frida is an action-oriented workflow. Once the APK is known, begin the sandbox setup without
+ // making the user press through an internal "Configure" screen. The explicit button remains for
+ // the other callers and for retry/recovery states.
+ LaunchedEffect(autoPrepare, state.packageName) {
+  if (!autoPrepare || autoPrepareRequested || state.packageName == null) return@LaunchedEffect
+  autoPrepareRequested = true
+  when {
+   isInstalledInPersonal -> showAlreadyInstalledDialog = true
+   environmentRepository.isWorkProfileConfigured() -> viewModel.onPrepareSandbox()
+   else -> showSetupDialog = true
+  }
+ }
+
  androidx.activity.compose.BackHandler(onBack = onBack)
 
  Scaffold(
   modifier = modifier,
   topBar = { AppTopBar(title = "Configure Sandbox", onBack = onBack, onOverflow = {}) },
   bottomBar = {
-   StickyActionBar {
+  StickyActionBar {
+    SecondaryActionButton(
+     text = "View static analysis",
+     onClick = { onViewStaticAnalysis(sessionId) },
+    )
     PrimaryActionButton(
-     text = if (state.isCreating) "Preparing..." else "Prepare Sandbox",
+     text = if (state.isCreating) "Starting…" else "Start Frida inspection",
      onClick = {
       if (isInstalledInPersonal) {
        showAlreadyInstalledDialog = true

@@ -85,21 +85,72 @@ import kotlinx.coroutines.delay
  var sessionId by remember { mutableStateOf(SandboxVpnService.activeSessionId) }
  var packageName by remember { mutableStateOf(SandboxVpnService.activePackageName) }
  var showHttpsInspection by remember(openTrafficInspector) { mutableStateOf(openTrafficInspector) }
+ var showFridaConsole by remember { mutableStateOf(false) }
  val fridaStatus by FridaTrafficMonitor.shared.status.collectAsState()
 
- LaunchedEffect(sessionId, packageName) {
-  FridaTrafficMonitor.shared.start(sessionId, packageName)
- }
+LaunchedEffect(sessionId, packageName) {
+  val currentSessionId = sessionId
+  val currentPackageName = packageName
+  if (!currentSessionId.isNullOrBlank() && !currentPackageName.isNullOrBlank()) {
+   FridaTrafficMonitor.shared.start(context.applicationContext, currentSessionId, currentPackageName)
+  } else {
+   FridaTrafficMonitor.shared.stop()
+  }
+}
 
- LaunchedEffect(Unit) {
-  while (true) {
-   sessionId = SandboxVpnService.activeSessionId
-   packageName = SandboxVpnService.activePackageName
+LaunchedEffect(Unit) {
+ var lastRecoveryAttemptAt = 0L
+ while (true) {
+   val persisted = SandboxVpnService.persistedSession(context)
+   val liveSessionId = SandboxVpnService.activeSessionId
+   val livePackageName = SandboxVpnService.activePackageName
+   val recoveredSession = if (SandboxVpnService.isForwardingActive && !liveSessionId.isNullOrBlank() && !livePackageName.isNullOrBlank()) {
+    SandboxVpnService.PersistedSession(liveSessionId, livePackageName, SandboxVpnService.activeSessionStartedAt?.toEpochMilli() ?: 0L)
+   } else {
+    persisted
+   }
+   sessionId = recoveredSession?.sessionId
+   packageName = recoveredSession?.packageName
+   if (recoveredSession != null && !SandboxVpnService.isForwardingActive) {
+    val now = android.os.SystemClock.elapsedRealtime()
+    if (now - lastRecoveryAttemptAt >= 5_000L) {
+     lastRecoveryAttemptAt = now
+     SandboxVpnService.requestRecovery(context, recoveredSession)
+    }
+   }
+   if (recoveredSession == null) {
+    SandboxVpnService.clearPersistedSession(context)
+   }
    delay(1000)
   }
  }
 
- if (showHttpsInspection) {
+ val currentSessionId = sessionId
+ // The Work monitor is the implementation surface for the Frida flow. Start the authenticated
+ // target as soon as the session is present; the user should not have to understand that this is
+ // a separate Work-profile launcher action.
+ LaunchedEffect(currentSessionId, packageName) {
+  if (!currentSessionId.isNullOrBlank() && !packageName.isNullOrBlank()) {
+   delay(400)
+   openSandboxedTargetApp(context, packageName.orEmpty())
+  }
+ }
+ // Once the injected script has authenticated, land on the command composer directly. Traffic
+ // inspection remains available from the console's back path for users who need it.
+ LaunchedEffect(fridaStatus.commandReady) {
+  if (fridaStatus.commandReady && currentSessionId != null) {
+   showFridaConsole = true
+  }
+ }
+ if (showFridaConsole) {
+  BackHandler { showFridaConsole = false }
+  FridaCommandConsoleScreen(
+   targetPackage = packageName.orEmpty(),
+   sessionId = currentSessionId.orEmpty(),
+   onBack = { showFridaConsole = false },
+   modifier = modifier,
+  )
+ } else if (showHttpsInspection) {
   BackHandler { showHttpsInspection = false }
   com.nadeem.apkscope.ui.screens.traffic.TrafficInspectorScreen(
    onBack = { showHttpsInspection = false },
@@ -107,7 +158,6 @@ import kotlinx.coroutines.delay
    modifier = modifier
   )
  } else {
-  val currentSessionId = sessionId
   if (currentSessionId != null) {
    WorkLiveMonitorScreen(
     sessionId = currentSessionId,
@@ -118,6 +168,7 @@ import kotlinx.coroutines.delay
      showHttpsInspection = true
     },
     onOpenSandboxApp = { openSandboxedTargetApp(context, packageName.orEmpty()) },
+    onOpenFridaConsole = { showFridaConsole = true },
     modifier = modifier
    )
   } else {
@@ -134,6 +185,30 @@ private fun openSandboxedTargetApp(context: android.content.Context, packageName
  if (packageName.isBlank() || packageName == context.packageName) {
   Toast.makeText(context, "Target app is not available yet.", Toast.LENGTH_SHORT).show()
   return
+ }
+ // The Personal-side launch path normally clears the DPC suspension immediately before
+ // LauncherApps.startMainActivity(). Work Profile users can also open the target from this
+ // monitor, however, and that path must enforce the same invariant or Android rejects the launch
+ // with "Blocked by work policy". The package name comes from SandboxVpnService's authenticated
+ // active-session binding; never accept a user-selected package here.
+ val dpm = context.getSystemService(DevicePolicyManager::class.java)
+ val admin = ComponentName(context, SandboxAdminReceiver::class.java)
+ if (dpm?.isAdminActive(admin) == true) {
+  try {
+   if (dpm.isPackageSuspended(admin, packageName)) {
+    val failedPackages = dpm.setPackagesSuspended(admin, arrayOf(packageName), false)
+    if (failedPackages.isNotEmpty() || dpm.isPackageSuspended(admin, packageName)) {
+     Toast.makeText(context, "Android is still blocking $packageName.", Toast.LENGTH_SHORT).show()
+     return
+    }
+   }
+  } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+   Toast.makeText(context, "The sandbox target is no longer installed. Return to Personal Profile and reinstall it.", Toast.LENGTH_LONG).show()
+   return
+  } catch (_: SecurityException) {
+   Toast.makeText(context, "Android did not allow APK Scope to change the target state.", Toast.LENGTH_SHORT).show()
+   return
+  }
  }
  val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
  if (launchIntent == null) {

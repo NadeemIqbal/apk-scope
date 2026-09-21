@@ -80,6 +80,7 @@ fun WorkLiveMonitorScreen(
  onBack: () -> Unit,
  onOpenHttpsInspection: () -> Unit = {},
  onOpenSandboxApp: () -> Unit = {},
+ onOpenFridaConsole: () -> Unit = {},
  modifier: Modifier = Modifier
 ) {
  val context = LocalContext.current
@@ -119,9 +120,17 @@ fun WorkLiveMonitorScreen(
    when (selectedSource) {
     TrafficSource.FRIDA -> {
      FridaReceiverStatusCard(fridaStatus)
+     SecondaryActionButton(
+      text = "Open Frida Command Console",
+      onClick = onOpenFridaConsole,
+      // Let the user open the editor while the receiver is still connecting so the quick
+      // commands, formatter, and validation feedback are discoverable. The Run button inside
+      // the console remains disabled until both verification and target authentication succeed.
+      enabled = fridaStatus.isListening,
+     )
      InfoCard(
       title = "Frida traffic",
-      text = "Open the patched sandboxed app and use the network feature you want to inspect. Captured SSL_read/SSL_write chunks appear in Traffic Inspector when the injected script connects.",
+      text = "Open the patched sandboxed app and use the network feature you want to inspect. Captured SSL_read/SSL_write chunks appear in Traffic Inspector when the injected script connects. The command console runs JavaScript only in this active target process.",
      )
     }
     TrafficSource.HTTP -> {
@@ -138,15 +147,15 @@ fun WorkLiveMonitorScreen(
       item {
        InfoCard(
         title = "Ending this session",
-        text = "End this sandbox session from the sandboxed app's card in your Personal Profile — Work Profile only monitors network activity, it does not control the session's lifecycle.",
-        modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm),
+       text = "End this sandbox session from the sandboxed app's card in your Personal Profile — Work Profile only monitors network activity, it does not control the session's lifecycle.",
+       modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm),
        )
       }
      }
     }
+   }
   }
  }
-}
 }
 
 private enum class TrafficSource { FRIDA, HTTP, VPN }
@@ -193,6 +202,13 @@ private fun FridaReceiverStatusCard(status: FridaTrafficMonitor.Status) {
   }
   androidx.compose.foundation.layout.Spacer(Modifier.height(Spacing.xs))
   Text("Connected package: ${status.connectedPackage ?: "none"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("Target package: ${status.targetPackage ?: "not bound"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("Target PID: ${status.connectedPid ?: "none"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(
+   if (status.commandReady) "Dynamic commands: ready" else "Dynamic commands: waiting for the target-bound channel",
+   style = MaterialTheme.typography.labelSmall,
+   color = if (status.commandReady) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+  )
   status.lastError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
  }
 }

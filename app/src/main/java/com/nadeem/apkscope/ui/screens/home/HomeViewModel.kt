@@ -20,7 +20,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class ActiveSessionCardState(
@@ -163,12 +162,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
   fun checkForOrphan(activity: Activity) {
    if (hasCheckedOrphan) return
-   hasCheckedOrphan = true
-   viewModelScope.launch {
-    if (_uiState.value.activeSession != null || sandboxSessionRepository.observeActiveSession().first() != null) return@launch
+  hasCheckedOrphan = true
+  viewModelScope.launch {
+    // Always ask Work for its live session, even when Personal has a non-terminal row.  A
+    // different or stale Personal row is exactly how an orphan can be hidden: the old guard
+    // returned early on any local active row, so the user never saw the recovery action for the
+    // Work session that was actually blocking the next prepare.
     val orphan = coordinator.checkForOrphanWorkSession(activity)
     _uiState.value = _uiState.value.copy(orphanSession = orphan)
-   }
+  }
   }
 
  /** Item 3/5's safe recovery action — drives the orphan through the normal End Session lifecycle. */

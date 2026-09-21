@@ -25,6 +25,8 @@ import com.nadeem.apkscope.core.model.SandboxError
 import com.nadeem.apkscope.core.model.SandboxErrorCode
 import com.nadeem.apkscope.core.model.SandboxSessionState
 import com.nadeem.apkscope.core.sandbox.PolicyEnforcer
+import com.nadeem.apkscope.poc.apkrepack.FridaChannelConfig
+import com.nadeem.apkscope.poc.apkrepack.FridaTrafficMonitor
 import com.nadeem.apkscope.spike.SandboxAdminReceiver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -136,6 +138,8 @@ class SandboxWorkerService : Service() {
 	   PackageInstallerDiagnostics.log("patched install failed: unreadable apk path=$apkPath session=$sessionId")
 	   return
 	  }
+		  FridaChannelConfig.storeToken(this, sessionId, targetPackage, FridaChannelConfig.generateToken())
+		  PackageInstallerDiagnostics.log("stored Work-profile target-bound Frida channel token for session=$sessionId package=$targetPackage")
 	  ensureWorkProfilePermissions()
 	  if (!packageManager.canRequestPackageInstalls()) {
 	   PackageInstallerDiagnostics.log("patched install blocked: canRequestPackageInstalls=false session=$sessionId package=$targetPackage")
@@ -184,6 +188,11 @@ class SandboxWorkerService : Service() {
    report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "This file could not be read as an APK.", "getPackageArchiveInfo returned null", Recoverability.TERMINAL)))
    return
   }
+
+  // Generate the token only after the APK has crossed into the Work profile. It is kept in this
+  // profile's private storage and is never recoverable by unpacking the target APK.
+  FridaChannelConfig.storeToken(this, sessionId, targetPackage, FridaChannelConfig.generateToken())
+  PackageInstallerDiagnostics.log("stored Work-profile target-bound Frida channel token for session=$sessionId package=$targetPackage")
 
   WorkAndroidEvidenceSink.currentSessionId = sessionId
   WorkAndroidEvidenceSink.currentTargetPackage = targetPackage
@@ -332,17 +341,10 @@ class SandboxWorkerService : Service() {
    getSystemService(NotificationManager::class.java).cancel(SandboxInstallResultReceiver.NOTIFICATION_ID_INSTALL)
    prefs.edit().remove("pending_$previousInstallSessionId").remove("session_$previousInstallSessionId").remove("package_$previousInstallSessionId").apply()
   }
-  try {
-   // Reconciliation will also verify this, but this avoids staging a duplicate install when the
-   // callback arrived and only the personal-side report was lost.
-   @Suppress("DEPRECATION")
-   val installed = packageManager.getPackageInfo(targetPackage, 0)
-   val versionCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
-   report(sessionId, SandboxStatusReport(sessionId, SandboxSessionState.INSTALLED, installedVersionCode = versionCode), targetPackage)
-   return@withLock
-  } catch (_: PackageManager.NameNotFoundException) {
-   // Not installed: continue with a fresh PackageInstaller session.
-  }
+  // Never treat an existing package as proof that this session's repacked APK is installed.
+  // The package may be a stale APK from an earlier session, with an older target-bound Frida
+  // token. Always create a fresh PackageInstaller session here; completion is reported only by
+  // the installer callback after Android has actually accepted this APK.
 
   ensureWorkProfilePermissions()
   if (!InstallConfirmationAvailability.available(this)) {
@@ -388,6 +390,10 @@ class SandboxWorkerService : Service() {
 
  /** Items 13/14/15/16: stop the sandboxed app, clear its data (waiting for the real completion callback), then request its removal — every step requires real, supported Android/user interaction, never automated. */
  private suspend fun runEndSessionSequence(sessionId: String, targetPackage: String) {
+  // Revoke the live authenticated socket before removing the credential. Clearing preferences
+  // alone does not invalidate an already-connected client or the in-memory expected token.
+  FridaTrafficMonitor.shared.stop()
+  FridaChannelConfig.clearToken(this, sessionId)
   // Checkpoint 5, item 17/28/34: stop monitoring and finalize the runtime-observation summary
   // *first* — "stop monitoring, finalize observed network activity, clear temporary app data and
   // remove the sandboxed APK" is the promised order (item 34), and it stays a genuinely separate
@@ -395,7 +401,10 @@ class SandboxWorkerService : Service() {
   // SandboxVpnService.closeAll()'s own internal stop-forwarding -> flush -> summarize ordering, it
   // does not itself perform any of those steps.
   val hadActiveSession = SandboxVpnService.isForwardingActive
-  startForegroundService(Intent(this, SandboxVpnService::class.java).setAction(SandboxVpnService.ACTION_CLOSE))
+  val vpnClosed = WorkSessionTeardown.closeAndAwait(this, expectedSessionId = sessionId)
+  if (!vpnClosed) {
+   Log.e("ApkScopeNet", "runEndSessionSequence: VPN did not close cleanly, session=$sessionId")
+  }
   if (hadActiveSession) {
    var waitedMs = 0
    while (SandboxVpnService.lastClosedSummary == null && waitedMs < 5000) { delay(100); waitedMs += 100 }

@@ -84,8 +84,16 @@ fun SandboxReadyScreen(sessionId: String, onBack: () -> Unit, modifier: Modifier
   bottomBar = {
    StickyActionBar {
     SecondaryActionButton(
-     text = "Open Work Sandbox",
-     onClick = { com.nadeem.apkscope.sandbox.SandboxProfileSwitcher.openSandboxProfile(context) },
+     text = if (state.isVerifyingIsolation) "Starting Sandbox…" else "Open Work Sandbox",
+     enabled = !state.isVerifyingIsolation,
+     onClick = {
+      // Launch goes through the coordinator's real Work-profile VPN verification. If Android
+      // reclaimed the VPN service while the profile was idle, that verification re-establishes
+      // it before the target is started; only then do we switch to the Work monitor.
+      viewModel.launch(context as Activity) {
+       com.nadeem.apkscope.sandbox.SandboxProfileSwitcher.openSandboxProfile(context)
+      }
+     },
     )
     DestructiveActionButton(
      text = if (state.isEnding) "Ending…" else "End Session",

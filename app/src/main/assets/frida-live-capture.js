@@ -132,18 +132,22 @@
         var pSocket = findExport("libc.so", "socket");
         var pConnect = findExport("libc.so", "connect");
         var pSend = findExport("libc.so", "send");
+        var pRecv = findExport("libc.so", "recv");
         var pClose = findExport("libc.so", "close");
         var pOpen = findExport("libc.so", "open");
         var pRead = findExport("libc.so", "read");
+        var pGetuid = findExport("libc.so", "getuid");
 
-        nativeLog("POSIX symbols: socket=" + pSocket + ", connect=" + pConnect + ", send=" + pSend + ", close=" + pClose);
+        nativeLog("POSIX symbols: socket=" + pSocket + ", connect=" + pConnect + ", send=" + pSend + ", recv=" + pRecv + ", close=" + pClose);
 
         var socket_fn = pSocket ? new NativeFunction(pSocket, 'int', ['int', 'int', 'int']) : null;
         var connect_fn = pConnect ? new NativeFunction(pConnect, 'int', ['int', 'pointer', 'int']) : null;
         var send_fn = pSend ? new NativeFunction(pSend, 'int', ['int', 'pointer', 'int', 'int']) : null;
+        var recv_fn = pRecv ? new NativeFunction(pRecv, 'int', ['int', 'pointer', 'int', 'int']) : null;
         var close_fn = pClose ? new NativeFunction(pClose, 'int', ['int']) : null;
         var open_fn = pOpen ? new NativeFunction(pOpen, 'int', ['pointer', 'int']) : null;
         var read_fn = pRead ? new NativeFunction(pRead, 'long', ['int', 'pointer', 'long']) : null;
+        var getuid_fn = pGetuid ? new NativeFunction(pGetuid, 'uint', []) : null;
 
         // --- Package Name Resolution ---
         var packageName = "unknown";
@@ -172,6 +176,56 @@
         // --- Monitor Connection Management ---
         var clientFd = -1;
         var isConnecting = false;
+        var reconnectTimer = null;
+        var tokenRetryTimer = null;
+        var tokenRequestAttempts = 0;
+        var commandPollTimer = null;
+        var commandBuffer = "";
+        var commandChannelToken = "";
+        var channelTokenReady = false;
+        var MAX_COMMAND_LINE = 256 * 1024;
+        var MAX_COMMAND_RESULT = 64 * 1024;
+        var MSG_DONTWAIT = 0x40;
+        var RECONNECT_DELAY_MS = 1000;
+        var CHANNEL_AUTHORITY = "com.nadeem.apkscope.frida.channel";
+        var CHANNEL_TOKEN_FILE = "apk_scope_channel_token";
+
+        // The injected Gadget script may start without Frida's Java bridge. The Java loader
+        // provisions the already-authenticated token into the target app's private files
+        // directory immediately before loading Gadget; read that handoff using libc so channel
+        // startup does not depend on Java.perform().
+        function readChannelTokenFromTargetFile(reason) {
+            if (channelTokenReady || !open_fn || !read_fn || !close_fn || packageName === "unknown") return false;
+            var paths = [];
+            try {
+                var uid = getuid_fn ? Number(getuid_fn()) : 0;
+                var userId = Math.floor(uid / 100000);
+                if (userId > 0) paths.push("/data/user/" + userId + "/" + packageName + "/files/" + CHANNEL_TOKEN_FILE);
+                paths.push("/data/data/" + packageName + "/files/" + CHANNEL_TOKEN_FILE);
+                paths.push("/data/user/0/" + packageName + "/files/" + CHANNEL_TOKEN_FILE);
+            } catch (e) {}
+
+            for (var i = 0; i < paths.length; i++) {
+                try {
+                    var pathPtr = Memory.allocUtf8String(paths[i]);
+                    var fd = open_fn(pathPtr, 0); // O_RDONLY
+                    if (fd < 0) continue;
+                    var buffer = Memory.alloc(128);
+                    var length = Number(read_fn(fd, buffer, 127));
+                    close_fn(fd);
+                    if (length <= 0) continue;
+                    var token = buffer.readUtf8String(length);
+                    if (token && /^[0-9a-fA-F]{64}$/.test(String(token))) {
+                        commandChannelToken = String(token);
+                        channelTokenReady = true;
+                        nativeLog("Obtained target-bound monitor credential from private handoff file (" + reason + ")");
+                        connectToMonitor();
+                        return true;
+                    }
+                } catch (e) {}
+            }
+            return false;
+        }
 
         function sendAll(fd, buf, totalLen) {
             if (!send_fn) return -1;
@@ -194,6 +248,8 @@
                     nativeLog("sendAll failed, closing client socket");
                     close_fn(clientFd);
                     clientFd = -1;
+                    stopCommandPolling();
+                    scheduleMonitorReconnect();
                     return false;
                 }
                 return true;
@@ -203,14 +259,242 @@
                     close_fn(clientFd);
                     clientFd = -1;
                 }
+                stopCommandPolling();
+                scheduleMonitorReconnect();
                 return false;
             }
         }
 
+        function truncateResult(value) {
+            var text = String(value);
+            return text.length > MAX_COMMAND_RESULT ? text.substring(0, MAX_COMMAND_RESULT) + "…[truncated]" : text;
+        }
+
+        function safeResult(value) {
+            if (value === undefined) return "undefined";
+            if (value === null) return "null";
+            if (typeof value === "string") return truncateResult(value);
+            try {
+                return truncateResult(JSON.stringify(value));
+            } catch (e) {
+                return truncateResult(value);
+            }
+        }
+
+        function sendCommandResult(id, ok, result, error) {
+            sendLine(JSON.stringify({
+                type: "command_result",
+                version: 2,
+                id: String(id || ""),
+                pkg: packageName,
+                ok: !!ok,
+                result: ok ? safeResult(result) : null,
+                error: ok ? null : truncateResult(error || "command failed"),
+                ts: Date.now()
+            }));
+        }
+
+        function evaluateCommand(source, id) {
+            try {
+                var result;
+                // Evaluate inside this already-attached target process. The fallback keeps the
+                // channel usable with older Gadget builds that do not expose Script.evaluate.
+                if (typeof Script !== "undefined" && typeof Script.evaluate === "function") {
+                    result = Script.evaluate("apk-scope-command-" + String(id || Date.now()), source);
+                } else {
+                    result = eval(source);
+                }
+                sendCommandResult(id, true, result, null);
+            } catch (e) {
+                sendCommandResult(id, false, null, e && e.stack ? e.stack : e);
+            }
+        }
+
+        function handleCommandLine(line) {
+            if (!line || line.length > MAX_COMMAND_LINE) {
+                sendCommandResult("", false, null, "command exceeds the maximum size");
+                return;
+            }
+
+            var command;
+            try {
+                command = JSON.parse(line);
+            } catch (e) {
+                sendCommandResult("", false, null, "invalid command JSON");
+                return;
+            }
+
+            if (!command || command.type !== "command" || command.version !== 2) {
+                sendCommandResult(command && command.id, false, null, "unsupported command protocol");
+                return;
+            }
+            if (command.pkg !== packageName) {
+                sendCommandResult(command.id, false, null, "target package mismatch");
+                return;
+            }
+
+            if (command.op === "ping") {
+                sendCommandResult(command.id, true, { packageName: packageName, pid: Process.id }, null);
+                return;
+            }
+            if (command.op === "evaluate" && typeof command.source === "string") {
+                if (command.source.length > MAX_COMMAND_LINE) {
+                    sendCommandResult(command.id, false, null, "script exceeds the maximum size");
+                    return;
+                }
+                evaluateCommand(command.source, command.id);
+                return;
+            }
+
+            sendCommandResult(command.id, false, null, "unsupported command");
+        }
+
+        function stopCommandPolling() {
+            if (commandPollTimer !== null) {
+                clearInterval(commandPollTimer);
+                commandPollTimer = null;
+            }
+            commandBuffer = "";
+        }
+
+        function scheduleMonitorReconnect() {
+            if (reconnectTimer !== null || clientFd >= 0 || isConnecting || !channelTokenReady) return;
+            reconnectTimer = setTimeout(function() {
+                reconnectTimer = null;
+                connectToMonitor();
+            }, RECONNECT_DELAY_MS);
+        }
+
+        function scheduleChannelTokenRetry() {
+            if (tokenRetryTimer !== null || channelTokenReady) return;
+            tokenRetryTimer = setTimeout(function() {
+                tokenRetryTimer = null;
+                requestChannelToken(null, "retry");
+            }, RECONNECT_DELAY_MS);
+        }
+
+        function logTokenRetry(reason) {
+            tokenRequestAttempts += 1;
+            if (tokenRequestAttempts === 1 || tokenRequestAttempts % 5 === 0) {
+                nativeLog("Waiting for target-bound channel credential (attempt=" + tokenRequestAttempts + ", reason=" + reason + ")");
+            }
+        }
+
+        // The token is provisioned by APK Scope inside the Work profile. The provider checks the
+        // Binder caller UID against the target package, so the APK only carries this public
+        // authority and cannot be used by another Work-profile app to obtain the credential.
+        function requestChannelTokenFromApp(app, reason) {
+            if (channelTokenReady || app === null || app === undefined) return;
+            try {
+                var Uri = Java.use("android.net.Uri");
+                var result = app.getContentResolver().call(
+                    Uri.parse("content://" + CHANNEL_AUTHORITY),
+                    "get_channel_token",
+                    null,
+                    null
+                );
+                var token = result ? result.getString("token") : null;
+                if (token !== null && /^[0-9a-fA-F]{64}$/.test(String(token))) {
+                    commandChannelToken = String(token);
+                    channelTokenReady = true;
+                    nativeLog("Obtained target-bound monitor credential from APK Scope (" + reason + ")");
+                    connectToMonitor();
+                } else {
+                    nativeLog("APK Scope returned no usable channel credential (" + reason + ")");
+                    scheduleChannelTokenRetry();
+                }
+            } catch (e) {
+                nativeLog("Channel token request error (" + reason + "): " + e);
+                scheduleChannelTokenRetry();
+            }
+        }
+
+        function requestChannelToken(appHint, reason) {
+            if (channelTokenReady) return;
+            if (readChannelTokenFromTargetFile(reason || "file")) return;
+            if (typeof Java === "undefined") {
+                logTokenRetry("Java-unavailable");
+                scheduleChannelTokenRetry();
+                return;
+            }
+            var requestReason = reason || "ActivityThread.currentApplication";
+            try {
+                Java.perform(function() {
+                    if (channelTokenReady) return;
+                    try {
+                        var app = appHint;
+                        if (app === null || app === undefined) {
+                            var ActivityThread = Java.use("android.app.ActivityThread");
+                            app = ActivityThread.currentApplication();
+                        }
+                        if (app === null) {
+                            logTokenRetry(requestReason + ":application-null");
+                            scheduleChannelTokenRetry();
+                            return;
+                        }
+                        requestChannelTokenFromApp(app, requestReason);
+                    } catch (e) {
+                        nativeLog("Java channel token request error (" + requestReason + "): " + e);
+                        scheduleChannelTokenRetry();
+                    }
+                });
+            } catch (e) {
+                nativeLog("Java channel token bridge error (" + requestReason + "): " + e);
+                scheduleChannelTokenRetry();
+            }
+        }
+
+        function pollCommands() {
+            if (clientFd < 0 || !recv_fn || !close_fn) return;
+            try {
+                var buf = Memory.alloc(8192);
+                var received = recv_fn(clientFd, buf, 8191, MSG_DONTWAIT);
+                if (received === 0) {
+                    close_fn(clientFd);
+                    clientFd = -1;
+                    stopCommandPolling();
+                    nativeLog("Monitor closed the command channel");
+                    scheduleMonitorReconnect();
+                    return;
+                }
+                if (received < 0) return;
+
+                var chunk = buf.readUtf8String(received) || "";
+                commandBuffer += chunk;
+                if (commandBuffer.length > MAX_COMMAND_LINE * 2) {
+                    sendCommandResult("", false, null, "command buffer exceeds the maximum size");
+                    close_fn(clientFd);
+                    clientFd = -1;
+                    stopCommandPolling();
+                    scheduleMonitorReconnect();
+                    return;
+                }
+
+                var newline;
+                while ((newline = commandBuffer.indexOf("\n")) !== -1) {
+                    var line = commandBuffer.substring(0, newline).trim();
+                    commandBuffer = commandBuffer.substring(newline + 1);
+                    if (line.length > 0) {
+                        nativeLog("Received command frame (" + line.length + " chars)");
+                        handleCommandLine(line);
+                    }
+                }
+            } catch (e) {
+                nativeLog("command receive error: " + e);
+            }
+        }
+
+        function startCommandPolling() {
+            if (!recv_fn || commandPollTimer !== null) return;
+            commandPollTimer = setInterval(pollCommands, 50);
+        }
+
         function connectToMonitor() {
             if (clientFd >= 0 || isConnecting) return;
+            if (!channelTokenReady || !commandChannelToken) return;
             if (!socket_fn || !connect_fn || !close_fn) {
                 nativeLog("Cannot connect: missing socket syscall functions");
+                scheduleMonitorReconnect();
                 return;
             }
             isConnecting = true;
@@ -250,6 +534,7 @@
                     nativeLog("connect() failed to 127.0.0.1:" + MONITOR_PORT + ", res=" + res + ", errno=" + errnoVal);
                     close_fn(fd);
                     isConnecting = false;
+                    scheduleMonitorReconnect();
                     return;
                 }
 
@@ -257,21 +542,32 @@
                 isConnecting = false;
                 nativeLog("Successfully connected to monitor 127.0.0.1:" + MONITOR_PORT + " (fd=" + fd + ")");
 
-                // Handshake line 1: package name
-                sendLine(packageName);
+                // Target-bound handshake. The controller never supplies a package or PID;
+                // these values originate in the injected process itself.
+                var helloSent = sendLine(JSON.stringify({
+                    type: "hello",
+                    version: 2,
+                    pkg: packageName,
+                    pid: Process.id,
+                    token: commandChannelToken
+                }));
+                if (helloSent) startCommandPolling();
             } catch (e) {
                 nativeLog("connectToMonitor exception: " + e + "\n" + (e.stack || ""));
                 if (clientFd >= 0 && close_fn) {
                     close_fn(clientFd);
                     clientFd = -1;
                 }
+                stopCommandPolling();
                 isConnecting = false;
+                scheduleMonitorReconnect();
             }
         }
 
         function sendTraffic(direction, dataBuffer, length, connId, source) {
             if (length <= 0 || !dataBuffer) return;
             if (clientFd < 0) {
+                requestChannelToken(null, "traffic");
                 connectToMonitor();
             }
             if (clientFd < 0) return;
@@ -497,12 +793,28 @@
         // can saturate the injected process. Socket-only fallback hooks must be enabled only after
         // descriptor filtering is available.
 
+        // The credential is intentionally not embedded in this APK. Request it once the Java
+        // bridge can authenticate the caller with the Work-profile APK Scope provider.
+        requestChannelToken(null, "initial");
+
         // 2. Attach lifecycle hooks for Dalvik/ART initialization
         try {
             if (typeof Java !== "undefined") {
                 Java.perform(function() {
                     try {
                         var Application = Java.use("android.app.Application");
+                        var onCreate = Application.onCreate.overload();
+                        onCreate.implementation = function() {
+                            // Gadget is loaded from attachBaseContext, before currentApplication()
+                            // is guaranteed to be populated. onCreate is the first lifecycle point
+                            // where the target Application is definitely available.
+                            onCreate.call(this);
+                            nativeLog("Application.onCreate reached; initializing target channel");
+                            bypassPinning();
+                            requestChannelTokenFromApp(this, "Application.onCreate");
+                            connectToMonitor();
+                        };
+
                         var attach = Application.attach.overload("android.content.Context");
                         attach.implementation = function(context) {
                             // Call Android's original implementation exactly once. Calling
@@ -511,11 +823,13 @@
                             attach.call(this, context);
                             nativeLog("Application.attach reached, initializing pinning bypass and monitor connection");
                             bypassPinning();
+                            requestChannelToken(null, "Application.attach");
                             connectToMonitor();
                         };
                     } catch (appErr) {
                         nativeLog("Application hook fallback: " + appErr);
                         bypassPinning();
+                        requestChannelToken(null, "lifecycle-fallback");
                         connectToMonitor();
                     }
                 });

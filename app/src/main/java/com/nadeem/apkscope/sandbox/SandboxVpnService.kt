@@ -8,6 +8,8 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
+import android.content.Context
+import android.os.Build
 import com.nadeem.apkscope.core.model.NetworkObservation
 import com.nadeem.apkscope.core.model.NetworkObservationSink
 import com.nadeem.apkscope.core.model.RuntimeObservationSummary
@@ -34,6 +36,12 @@ import java.time.Instant
  * *started* this service — only from this flag actually turning true).
  */
 class SandboxVpnService : VpnService() {
+ data class PersistedSession(
+  val sessionId: String,
+  val packageName: String,
+  val startedAtEpochMs: Long,
+ )
+
  private var tun: ParcelFileDescriptor? = null
  private var forwarding: ForwardingEngine? = null
  private var observationSink: WorkNetworkObservationSink? = null
@@ -49,6 +57,10 @@ class SandboxVpnService : VpnService() {
   const val EXTRA_PACKAGE_NAME = "com.nadeem.apkscope.sandbox.extra.PACKAGE_NAME"
   private const val CHANNEL_ID = "sandbox-vpn"
   private const val NOTIFICATION_ID = 43
+  private const val STATE_PREFS = "sandbox_vpn_state"
+  private const val STATE_SESSION_ID = "active_session_id"
+  private const val STATE_PACKAGE_NAME = "active_package_name"
+  private const val STATE_STARTED_AT = "active_started_at"
 
   /** Set only once `ForwardingEngine.start()` has actually been called on a real, established TUN — never merely once the service has been asked to start (item 6). */
   @Volatile var isForwardingActive: Boolean = false
@@ -91,6 +103,45 @@ class SandboxVpnService : VpnService() {
    */
   @Volatile var lastClosedSummary: RuntimeObservationSummary? = null
    private set
+
+  /**
+   * The VPN service is the authoritative owner while it is alive, but Android can reclaim the
+   * service process after the Work profile has been idle. Keep the last successfully established
+   * binding durable so the Work monitor can distinguish "service reclaimed" from "session ended"
+   * and request a real re-establish instead of silently showing an empty monitor.
+   */
+  fun persistedSession(context: Context): PersistedSession? {
+   val prefs = context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE)
+   val sessionId = prefs.getString(STATE_SESSION_ID, null)?.takeIf { it.isNotBlank() } ?: return null
+   val packageName = prefs.getString(STATE_PACKAGE_NAME, null)?.takeIf { it.isNotBlank() } ?: return null
+   return PersistedSession(sessionId, packageName, prefs.getLong(STATE_STARTED_AT, 0L))
+  }
+
+  fun clearPersistedSession(context: Context) {
+   context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+  }
+
+  fun requestRecovery(context: Context, session: PersistedSession) {
+   if (isForwardingActive && activeSessionId == session.sessionId && activePackageName == session.packageName) return
+   val intent = Intent(context, SandboxVpnService::class.java)
+    .setAction(ACTION_ESTABLISH)
+    .putExtra(EXTRA_SESSION_ID, session.sessionId)
+    .putExtra(EXTRA_PACKAGE_NAME, session.packageName)
+   try {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
+    android.util.Log.i("SandboxVpnService", "requested recovery for session=${session.sessionId} package=${session.packageName}")
+   } catch (e: Exception) {
+    android.util.Log.e("SandboxVpnService", "could not request recovery: ${e.message}", e)
+   }
+  }
+
+  private fun persistSession(context: Context, sessionId: String, packageName: String, startedAtEpochMs: Long) {
+   context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE).edit()
+    .putString(STATE_SESSION_ID, sessionId)
+    .putString(STATE_PACKAGE_NAME, packageName)
+    .putLong(STATE_STARTED_AT, startedAtEpochMs)
+    .apply()
+  }
  }
 
  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -107,9 +158,12 @@ class SandboxVpnService : VpnService() {
    // indefinitely after every session that ended this way. Actually stopping foreground + the
    // service itself here is what makes "no active runtime session" also mean "no lingering
    // foreground service", matching Checkpoint 5.3 item 6's idle-baseline requirement.
-   ACTION_CLOSE -> { closeAll(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+   ACTION_CLOSE -> { closeAll(clearPersistedSession = true); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
    ACTION_ESTABLISH -> {
-    closeAll()
+    // Keep the durable binding while replacing/recovering the in-memory service state. A failed
+    // recovery must remain distinguishable from an explicit End Session until the new tunnel is
+    // actually established or the user ends the session.
+    closeAll(clearPersistedSession = false)
     // Checkpoint 5, item 17: cleared at the start of this new session, not the end of the last one —
     // a poller must never observe a summary from N-1 while session N is still spinning up.
     lastClosedSummary = null
@@ -165,6 +219,9 @@ class SandboxVpnService : VpnService() {
      activeSessionId = sessionId
      activePackageName = packageName
      activeSessionStartedAt = startedAt
+     if (sessionId != null && packageName != null) {
+      persistSession(this, sessionId, packageName, startedAt.toEpochMilli())
+     }
      // Checkpoint 5, item 3/4: a brand-new sink scoped to this session only, fanned out alongside
      // (never replacing) the existing diagnostic NetworkObservationLog — see WorkNetworkObservationSink's
      // doc comment for why a new instance per session, never a shared/reused one, is what makes
@@ -298,7 +355,7 @@ class SandboxVpnService : VpnService() {
   * only once all of that is done does [lastClosedSummary] get set, which is the sole signal
   * `SandboxWorkerService.runEndSessionSequence()` polls on.
   */
- private fun closeAll() {
+ private fun closeAll(clearPersistedSession: Boolean) {
   isForwardingActive = false
   val engine = forwarding
   if (engine != null) { forwarding = null; engine.stop(); tun = null } else { tun?.close(); tun = null }
@@ -312,11 +369,19 @@ class SandboxVpnService : VpnService() {
   activePackageName = null
   activeSessionStartedAt = null
   scopedPackageName = null
+  if (clearPersistedSession) {
+   Companion.clearPersistedSession(this)
+  }
   if (sink != null && startedAt != null) {
    lastClosedSummary = sink.closeAndFinalize(startedAt, Instant.now())
   }
  }
 
- override fun onDestroy() { closeAll(); super.onDestroy() }
- override fun onRevoke() { closeAll(); stopSelf() }
+ override fun onDestroy() {
+  // onDestroy can be delivered because Android reclaimed an idle service. Preserve the durable
+  // binding in that case; only ACTION_CLOSE/onRevoke explicitly clear it.
+  closeAll(clearPersistedSession = false)
+  super.onDestroy()
+ }
+ override fun onRevoke() { closeAll(clearPersistedSession = true); stopSelf() }
 }

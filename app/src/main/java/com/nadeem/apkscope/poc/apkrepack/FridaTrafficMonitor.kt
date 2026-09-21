@@ -1,5 +1,6 @@
 package com.nadeem.apkscope.poc.apkrepack
 
+import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.nadeem.apkscope.core.network.traffic.TrafficCaptureState
@@ -21,10 +22,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
+import java.io.BufferedWriter
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.InputStreamReader
+import java.io.IOException
+import java.io.InputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -72,9 +74,30 @@ class FridaTrafficMonitor {
     data class Status(
         val isListening: Boolean = false,
         val connectedPackage: String? = null,
+        val connectedPid: Int? = null,
+        val targetPackage: String? = null,
+        val commandReady: Boolean = false,
+        val lastCommand: CommandResult? = null,
         val capturedCount: Int = 0,
         val lastError: String? = null,
         val port: Int = LISTEN_PORT
+    )
+
+    data class CommandResult(
+        val id: String,
+        val ok: Boolean,
+        val result: String?,
+        val error: String?,
+        val source: String? = null,
+        val targetPackage: String? = null,
+        val sessionId: String? = null,
+        val timestamp: Long = System.currentTimeMillis(),
+    )
+
+    data class CommandDispatch(
+        val accepted: Boolean,
+        val id: String? = null,
+        val error: String? = null,
     )
 
     private val _trafficFlow = MutableSharedFlow<CapturedTraffic>(
@@ -84,12 +107,19 @@ class FridaTrafficMonitor {
     val trafficFlow: SharedFlow<CapturedTraffic> = _trafficFlow
     private val _status = MutableStateFlow(Status())
     val status: StateFlow<Status> = _status.asStateFlow()
+    private val _commandResults = MutableSharedFlow<CommandResult>(replay = 20, extraBufferCapacity = 20)
+    val commandResults: SharedFlow<CommandResult> = _commandResults
 
     private var serverSocket: ServerSocket? = null
     @Volatile
     private var isRunning = false
     private var activeSessionId: String? = null
     private var activeTargetPackage: String? = null
+    private var expectedChannelToken: String? = null
+    private var activeClientSocket: Socket? = null
+    private var activeClientWriter: BufferedWriter? = null
+    private val clientLock = Any()
+    private val pendingCommandSources = ConcurrentHashMap<String, String>()
 
     private val activeTransactions = ConcurrentHashMap<String, InFlightTransaction>()
     private val http2Connections = ConcurrentHashMap<String, LiveHttp2ConnectionDecoder>()
@@ -115,8 +145,43 @@ class FridaTrafficMonitor {
     )
 
     fun start(sessionId: String? = null, targetPackage: String? = null) {
+        startInternal(sessionId, targetPackage, null)
+    }
+
+    /** Start a Work Profile monitor bound to the token created for this repacked APK. */
+    fun start(context: Context, sessionId: String, targetPackage: String) {
+        startInternal(sessionId, targetPackage, FridaChannelConfig.readToken(context, sessionId))
+    }
+
+    private fun startInternal(sessionId: String?, targetPackage: String?, channelToken: String?) {
+        val targetChanged = isRunning && (
+            activeSessionId != sessionId ||
+                activeTargetPackage != targetPackage ||
+                expectedChannelToken != channelToken
+            )
+        // WorkEntryScreen and WorkLiveMonitorViewModel both start the shared monitor. If the
+        // target is unchanged, this is an idempotent call. Do not clear commandReady here:
+        // the target may have authenticated between the first start and this duplicate call.
+        if (isRunning && !targetChanged) {
+            Log.i(TAG, "Traffic monitor already active, session=$sessionId, target=$targetPackage")
+            return
+        }
+        if (targetChanged) {
+            synchronized(clientLock) {
+                runCatching { activeClientSocket?.close() }
+                activeClientSocket = null
+                activeClientWriter = null
+            }
+            pendingCommandSources.clear()
+        }
         activeSessionId = sessionId
         activeTargetPackage = targetPackage
+        expectedChannelToken = channelToken
+        _status.value = _status.value.copy(
+            targetPackage = targetPackage,
+            commandReady = false,
+            lastCommand = null,
+        )
         if (isRunning) {
             Log.i(TAG, "Traffic monitor already active, session=$sessionId, target=$targetPackage")
             return
@@ -141,9 +206,16 @@ class FridaTrafficMonitor {
 
                 serverSocket = ServerSocket().apply {
                     reuseAddress = true
-                    bind(InetSocketAddress(LISTEN_PORT))
+                    bind(InetSocketAddress("127.0.0.1", LISTEN_PORT))
                 }
-                _status.value = _status.value.copy(isListening = true, lastError = null)
+                _status.value = _status.value.copy(
+                    isListening = true,
+                    targetPackage = activeTargetPackage,
+                    commandReady = false,
+                    lastError = if (activeTargetPackage != null && expectedChannelToken == null) {
+                        "Target channel token is unavailable for this session"
+                    } else null,
+                )
                 Log.i(TAG, "Traffic monitor server listening on 127.0.0.1:$LISTEN_PORT")
 
                 while (isRunning && isActive) {
@@ -176,26 +248,105 @@ class FridaTrafficMonitor {
     private suspend fun handleClient(clientSocket: Socket) {
         withContext(Dispatchers.IO) {
             var packageName = "unknown"
+            var processId: Int? = null
+            var accepted = false
+            var boundTargetPackage: String? = null
+            var boundSessionId: String? = null
+            var boundChannelToken: String? = null
 
             try {
                 clientSocket.use { socket ->
-                    val reader = BufferedReader(InputStreamReader(socket.inputStream, Charsets.UTF_8))
+                    val reader = BoundedLineReader(socket.inputStream, FridaChannelConfig.MAX_COMMAND_CHARS)
+                    val writer = socket.outputStream.bufferedWriter(Charsets.UTF_8)
 
-                    // First line: package name
-                    packageName = reader.readLine() ?: "unknown"
-                    _status.value = _status.value.copy(connectedPackage = packageName, lastError = null)
-                    Log.i(TAG, "Client package connected: $packageName")
+                    // First line: target-originated, authenticated hello. There is no controller
+                    // API that accepts a package name or PID, so a caller cannot retarget this
+                    // endpoint to another installed package/process.
+                    val helloLine = reader.readLine()
+                    if (helloLine.isNullOrBlank() || helloLine.length > FridaChannelConfig.MAX_COMMAND_CHARS) {
+                        sendProtocolError(writer, "", "missing or oversized target hello")
+                        return@use
+                    }
+                    val hello = runCatching { JSONObject(helloLine) }.getOrNull()
+                    if (hello == null || hello.optString("type") != "hello" ||
+                        hello.optInt("version", -1) != FridaChannelConfig.PROTOCOL_VERSION
+                    ) {
+                        sendProtocolError(writer, "", "unsupported target hello")
+                        return@use
+                    }
+
+                    packageName = hello.optString("pkg", "")
+                    processId = hello.optInt("pid", -1).takeIf { it >= 0 }
+                    val helloToken = hello.optString("token", "")
+                    boundTargetPackage = activeTargetPackage
+                    boundSessionId = activeSessionId
+                    boundChannelToken = expectedChannelToken
+                    if (!FridaCommandPolicy.acceptsHello(boundTargetPackage, expectedChannelToken, packageName, helloToken)) {
+                        sendProtocolError(writer, "", "target package or channel token mismatch")
+                        Log.w(TAG, "Rejected Frida client package=$packageName expected=$boundTargetPackage")
+                        return@use
+                    }
+
+                    synchronized(clientLock) {
+                        if (activeClientSocket != null) return@synchronized
+                        activeClientSocket = socket
+                        activeClientWriter = writer
+                        accepted = true
+                    }
+                    if (!accepted) {
+                        sendProtocolError(writer, "", "another target connection is already active")
+                        return@use
+                    }
+
+                    _status.value = _status.value.copy(
+                        connectedPackage = packageName,
+                        connectedPid = processId,
+                        targetPackage = boundTargetPackage,
+                        commandReady = boundTargetPackage != null && expectedChannelToken != null,
+                        lastError = null,
+                    )
+                    Log.i(TAG, "Target client connected: $packageName pid=${processId ?: "unknown"}")
 
                     // Then: JSON-lines of traffic events
                     var line: String? = null
                     while (isRunning && reader.readLine().also { line = it } != null) {
+                        if (activeSessionId != boundSessionId || activeTargetPackage != boundTargetPackage ||
+                            expectedChannelToken != boundChannelToken
+                        ) break
                         val currentLine = line
-                        if (currentLine.isNullOrBlank()) continue
+                        if (currentLine.isNullOrBlank() || currentLine.length > FridaChannelConfig.MAX_COMMAND_CHARS) continue
 
                         try {
                             val obj = JSONObject(currentLine)
+                            when (obj.optString("type")) {
+                                "command_result" -> {
+                                    if (obj.optString("pkg", packageName) != packageName) continue
+                                    val result = CommandResult(
+                                        id = obj.optString("id", ""),
+                                        ok = obj.optBoolean("ok", false),
+                                        result = obj.opt("result")?.toString(),
+                                        error = obj.opt("error")?.toString(),
+                                        source = pendingCommandSources.remove(obj.optString("id", "")),
+                                        targetPackage = packageName,
+                                        sessionId = boundSessionId,
+                                        timestamp = obj.optLong("ts", System.currentTimeMillis()),
+                                    )
+                                    _status.value = _status.value.copy(lastCommand = result, lastError = result.error)
+                                    _commandResults.emit(result)
+                                    continue
+                                }
+                                "hello" -> continue
+                            }
+
+                            val eventPackage = obj.optString("pkg", packageName)
+                            if (eventPackage != packageName ||
+                                boundTargetPackage != null && eventPackage != boundTargetPackage
+                            ) {
+                                Log.w(TAG, "Ignoring event from unexpected package=$eventPackage expected=$packageName")
+                                continue
+                            }
                             val traffic = CapturedTraffic(
-                                pkg = obj.optString("pkg", packageName),
+                                pkg = eventPackage,
                                 dir = obj.optString("dir", "in"),
                                 len = obj.optInt("len", 0),
                                 ts = obj.optLong("ts", System.currentTimeMillis()),
@@ -205,7 +356,7 @@ class FridaTrafficMonitor {
                             )
 
                             _trafficFlow.emit(traffic)
-                            processTrafficChunk(traffic, activeSessionId, activeTargetPackage)
+                            processTrafficChunk(traffic, boundSessionId, boundTargetPackage)
                             _status.value = _status.value.copy(
                                 capturedCount = _status.value.capturedCount + 1,
                                 lastError = null
@@ -221,7 +372,19 @@ class FridaTrafficMonitor {
                 Log.w(TAG, "Client socket error ($packageName): ${e.message}")
             } finally {
                 Log.i(TAG, "Client disconnected: $packageName")
-                _status.value = _status.value.copy(connectedPackage = null)
+                synchronized(clientLock) {
+                    if (activeClientSocket === clientSocket) {
+                        activeClientSocket = null
+                        activeClientWriter = null
+                    }
+                }
+                if (accepted) {
+                    _status.value = _status.value.copy(
+                        connectedPackage = null,
+                        connectedPid = null,
+                        commandReady = false,
+                    )
+                }
                 try {
                     clientSocket.close()
                 } catch (_: Exception) {}
@@ -229,9 +392,47 @@ class FridaTrafficMonitor {
         }
     }
 
+    private fun sendProtocolError(writer: BufferedWriter, id: String, message: String) {
+        runCatching {
+            writer.write(
+                JSONObject()
+                    .put("type", "command_result")
+                    .put("version", FridaChannelConfig.PROTOCOL_VERSION)
+                    .put("id", id)
+                    .put("ok", false)
+                    .put("error", message)
+                    .toString()
+            )
+            writer.newLine()
+            writer.flush()
+        }
+    }
+
+    /** Prevent an untrusted local client from forcing an unbounded line allocation. */
+    private class BoundedLineReader(input: InputStream, private val maxChars: Int) {
+        private val bufferedReader = input.reader(Charsets.UTF_8).buffered()
+
+        fun readLine(): String? {
+            val line = StringBuilder()
+            while (true) {
+                val next = bufferedReader.read()
+                if (next == -1) return if (line.isEmpty()) null else line.toString()
+                if (next == '\n'.code) return line.toString()
+                if (next == '\r'.code) continue
+                if (line.length >= maxChars) throw IOException("protocol line exceeds $maxChars characters")
+                line.append(next.toChar())
+            }
+        }
+    }
+
     fun stop() {
         isRunning = false
         serverJob?.cancel()
+        synchronized(clientLock) {
+            runCatching { activeClientSocket?.close() }
+            activeClientSocket = null
+            activeClientWriter = null
+        }
         try {
             serverSocket?.close()
         } catch (e: Exception) {
@@ -240,8 +441,105 @@ class FridaTrafficMonitor {
         serverSocket = null
         activeTransactions.clear()
         http2Connections.clear()
-        _status.value = _status.value.copy(isListening = false, connectedPackage = null)
+        activeSessionId = null
+        activeTargetPackage = null
+        expectedChannelToken = null
+        pendingCommandSources.clear()
+        _status.value = _status.value.copy(
+            isListening = false,
+            connectedPackage = null,
+            connectedPid = null,
+            targetPackage = null,
+            commandReady = false,
+            lastCommand = null,
+        )
         Log.i(TAG, "Traffic monitor stopped")
+    }
+
+    /** Send JavaScript for evaluation in the already-authenticated active target process. */
+    fun sendScript(source: String): CommandDispatch {
+        if (source.isBlank()) return CommandDispatch(false, error = "Enter a script first")
+        if (source.length > FridaChannelConfig.MAX_COMMAND_CHARS) {
+            return CommandDispatch(false, error = "Script exceeds the 256 KiB limit")
+        }
+
+        val target = activeTargetPackage
+        val token = expectedChannelToken
+        if (target.isNullOrBlank() || token.isNullOrBlank()) {
+            return CommandDispatch(false, error = "Dynamic commands require an active target-bound Work session")
+        }
+
+        val id = java.util.UUID.randomUUID().toString()
+        if (!_status.value.commandReady ||
+            !FridaCommandPolicy.acceptsCommandTarget(activeTargetPackage, target)
+        ) {
+            return CommandDispatch(false, error = "The target APK is not connected")
+        }
+
+        val commandJson = JSONObject()
+            .put("type", "command")
+            .put("version", FridaChannelConfig.PROTOCOL_VERSION)
+            .put("id", id)
+            .put("pkg", target)
+            .put("op", "evaluate")
+            .put("source", source)
+            .toString()
+        // MAX_COMMAND_CHARS applies to the complete JSON-lines frame, not just the script field.
+        // Check the encoded envelope before writing so a boundary-sized script gets an explicit
+        // dispatch error instead of being dropped by the receiver's bounded line reader.
+        if (commandJson.length > FridaChannelConfig.MAX_COMMAND_CHARS) {
+            return CommandDispatch(false, error = "Serialized command exceeds the 256 KiB limit")
+        }
+
+        pendingCommandSources[id] = source
+        val dispatchSessionId = activeSessionId
+        monitorScope.launch {
+            try {
+                // Socket I/O must stay off the Compose/main thread. Serialize the entire write
+                // with connection replacement/close; otherwise a reconnect can close the writer
+                // between the active-connection check and flush.
+                synchronized(clientLock) {
+                    val socket = activeClientSocket
+                    val writer = activeClientWriter
+                    if (socket == null || writer == null || !_status.value.commandReady ||
+                        activeSessionId != dispatchSessionId || activeTargetPackage != target
+                    ) {
+                        throw IOException("target channel closed before command write")
+                    }
+                    writer.write(commandJson)
+                    writer.newLine()
+                    writer.flush()
+                }
+                Log.i(TAG, "Command sent id=$id target=$target sourceChars=${source.length}")
+            } catch (e: Exception) {
+                pendingCommandSources.remove(id)
+                synchronized(clientLock) {
+                    runCatching { activeClientSocket?.close() }
+                    activeClientSocket = null
+                    activeClientWriter = null
+                }
+                val detail = "${e.javaClass.simpleName}: ${e.message ?: "no message"}"
+                Log.e(TAG, "Command send failed id=$id target=$target ($detail)", e)
+                _status.value = _status.value.copy(
+                    connectedPackage = null,
+                    connectedPid = null,
+                    commandReady = false,
+                    lastError = "Command send failed: $detail",
+                )
+                _commandResults.emit(
+                    CommandResult(
+                        id = id,
+                        ok = false,
+                        result = null,
+                        error = "Command send failed: $detail",
+                        source = source,
+                        targetPackage = target,
+                        sessionId = dispatchSessionId,
+                    ),
+                )
+            }
+        }
+        return CommandDispatch(true, id = id)
     }
 
     fun isRunning(): Boolean = isRunning

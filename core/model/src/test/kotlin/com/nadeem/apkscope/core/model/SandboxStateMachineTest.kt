@@ -50,6 +50,20 @@ class SandboxStateMachineTest {
   assertTrue(SandboxStateMachine.canTransition(SandboxSessionState.READY, SandboxSessionState.ENDING))
  }
 
+ @Test fun everyPreRunStateCanEnterEndingForExplicitTeardown() {
+  val states = listOf(
+   SandboxSessionState.CREATED,
+   SandboxSessionState.PREPARING,
+   SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+   SandboxSessionState.INSTALLING,
+   SandboxSessionState.INSTALLED,
+   SandboxSessionState.LAUNCHING,
+  )
+  for (state in states) {
+   assertTrue("$state should be endable before launch completes", SandboxStateMachine.canTransition(state, SandboxSessionState.ENDING))
+  }
+ }
+
  @Test fun lostInstallingReportCanBeRecoveredFromWaitingToInstalled() {
   assertTrue(SandboxStateMachine.canTransition(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLED))
  }

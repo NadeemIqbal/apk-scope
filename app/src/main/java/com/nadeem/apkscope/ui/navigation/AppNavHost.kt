@@ -172,6 +172,7 @@ fun AppNavHost(onOpenAdvancedDiagnostics: () -> Unit) {
    val route: SandboxConfigRoute = backStackEntry.toRoute()
    SandboxConfigScreen(
     sessionId = route.sessionId,
+    onViewStaticAnalysis = { id -> navController.navigate(StaticResultRoute(id)) },
     onPrepare = { id, stage ->
      val destination = when (stage) {
       com.nadeem.apkscope.ui.screens.sandbox.SandboxLifecycleStage.PREPARING -> SandboxPreparingRoute(id)
@@ -281,7 +282,9 @@ fun AppNavHost(onOpenAdvancedDiagnostics: () -> Unit) {
   composable<PocApkRepackRoute> {
    ApkRepackScreen(
     onBack = { navController.popBackStack() },
-    onOpenAnalysis = { id -> navController.navigate(AnalysisRoute(id)) {
+    // Frida inspection is an action flow, not a second static-analysis detour. The static
+    // analysis is still persisted by the repack screen; the user goes straight to sandbox setup.
+    onOpenAnalysis = { id -> navController.navigate(SandboxConfigRoute(id)) {
      popUpTo(PocApkRepackRoute) { inclusive = true }
     } },
    )

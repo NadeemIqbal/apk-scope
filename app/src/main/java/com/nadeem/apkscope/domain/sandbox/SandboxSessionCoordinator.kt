@@ -218,6 +218,7 @@ class DefaultSandboxSessionCoordinator(
          * still turning a truly dropped query into a bounded, observable failure instead of an indefinite
          * hang. */
         private const val WORK_SESSION_QUERY_TIMEOUT_MS = 10_000L
+        private const val WORK_SESSION_CLOSE_TIMEOUT_MS = 10_000L
     }
 
     override fun observe(sessionId: String) = repository.observe(sessionId)
@@ -604,11 +605,67 @@ class DefaultSandboxSessionCoordinator(
 
     override suspend fun end(activity: Activity, sessionId: String): SandboxOperationResult {
         val session = repository.get(sessionId) ?: return notFound(sessionId)
-        if (session.state != SandboxSessionState.READY && session.state != SandboxSessionState.RUNNING && session.state != SandboxSessionState.ENDING && session.state != SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION) return SandboxOperationResult.Success(
+        val terminalStates = setOf(
+            SandboxSessionState.COMPLETED,
+            SandboxSessionState.FAILED,
+            SandboxSessionState.CANCELLED,
+        )
+
+        // A failed prepare can still have a live Work-side VPN: the failure may have been
+        // reported after Work established isolation, and older Work-profile APKs did not yet
+        // run the early-failure teardown hook.  The Preparing screen's End Session action must
+        // therefore remain a real cleanup action for terminal Personal rows.  Query Work first
+        // and only send the close request when the live session is attributed to this exact row;
+        // never tear down a different, legitimately active session.
+        if (session.state in terminalStates) {
+            val snapshot = try {
+                kotlinx.coroutines.withTimeoutOrNull(WORK_SESSION_QUERY_TIMEOUT_MS) {
+                    queryWorkActiveSession(activity)
+                }
+            } catch (_: Exception) {
+                null
+            }
+            if (snapshot == null) {
+                return SandboxOperationResult.Failure(
+                    session,
+                    SandboxError(
+                        SandboxErrorCode.WORK_SESSION_STATE_UNKNOWN,
+                        "Could not confirm whether this sandbox session is closed. Please try ending it again.",
+                        "end: terminal session cleanup query did not respond for session=$sessionId",
+                        Recoverability.RETRYABLE,
+                    ),
+                )
+            }
+            if (snapshot.active && snapshot.sessionId == sessionId) {
+                return endOrphanWithoutPersonalRow(
+                    activity,
+                    OrphanSessionInfo(
+                        sessionId = sessionId,
+                        packageName = snapshot.packageName ?: session.packageName,
+                        startedAtEpochMs = snapshot.startedAtEpochMs,
+                        networkIsolationActive = true,
+                    ),
+                )
+            }
+            return SandboxOperationResult.Success(session)
+        }
+
+        if (session.state !in setOf(
+                SandboxSessionState.CREATED,
+                SandboxSessionState.PREPARING,
+                SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+                SandboxSessionState.INSTALLING,
+                SandboxSessionState.INSTALLED,
+                SandboxSessionState.READY,
+                SandboxSessionState.RUNNING,
+                SandboxSessionState.ENDING,
+                SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION,
+            )
+        ) return SandboxOperationResult.Success(
             session
         )
 
-        var next = if (session.state == SandboxSessionState.READY || session.state == SandboxSessionState.RUNNING) session.transitionTo(
+        var next = if (session.state != SandboxSessionState.ENDING && session.state != SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION) session.transitionTo(
             SandboxSessionState.ENDING
         ) else session
         repository.save(next)
@@ -628,6 +685,15 @@ class DefaultSandboxSessionCoordinator(
                 sessionId,
                 SANDBOX_FILE_PROVIDER_AUTHORITY
             )
+            if (!awaitWorkSessionClosed(activity, sessionId)) {
+                val error = SandboxError(
+                    SandboxErrorCode.WORK_SESSION_STATE_UNKNOWN,
+                    "Could not confirm that the sandbox session closed. Please retry ending it.",
+                    "end: Work active-session query did not confirm inactive for session=$sessionId",
+                    Recoverability.RETRYABLE,
+                )
+                return SandboxOperationResult.Failure(next, error)
+            }
             SandboxOperationResult.Success(next)
         } catch (e: Exception) {
             val error = SandboxError(
@@ -636,7 +702,10 @@ class DefaultSandboxSessionCoordinator(
                 e.toString(),
                 Recoverability.RETRYABLE
             )
-            next = next.transitionTo(SandboxSessionState.CLEANUP_REQUIRED).copy(error = error)
+            // ENDING is the authoritative state after the user has requested teardown. A failed
+            // handoff must remain on a legal lifecycle edge; CLEANUP_REQUIRED is only reachable
+            // after the actual cleanup sequence has progressed through CLEARING_DATA.
+            next = next.transitionTo(SandboxSessionState.FAILED).copy(error = error)
             repository.save(next)
             SandboxOperationResult.Failure(next, error)
         }
@@ -838,18 +907,17 @@ class DefaultSandboxSessionCoordinator(
         var next = session
         when (session.state) {
             SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLING -> {
-                // Process-death scenario A: the install confirmation may have completed while we were dead.
-                if (installedInWork) {
-                    next = safeTransition(session, SandboxSessionState.INSTALLED) ?: session
-                    val readiness =
-                        SandboxEnvironmentPreflight.computeLaunchReadiness(context, next)
-                    android.util.Log.i(
-                        "ReconcileDiag",
-                        "readiness after INSTALLED transition: installationConfirmed=${readiness.installationConfirmed} environmentValid=${readiness.environmentValid} requiredPoliciesSatisfied=${readiness.requiredPoliciesSatisfied} networkIsolationActive=${readiness.networkIsolationActive} launchAllowed=${readiness.launchAllowed} transitionSucceeded=${next.state}"
-                    )
-                    if (readiness.launchAllowed) next =
-                        safeTransition(next, SandboxSessionState.READY) ?: next
-                }
+                // Package presence is not proof that *this* install completed. A previous APK
+                // with the same package can already be installed while the current
+                // PackageInstaller session is still waiting for Android's confirmation UI. The
+                // old fallback promoted that stale APK to READY, launched it, and caused its old
+                // Frida token to be rejected by the current session's monitor. Only the
+                // authenticated install-result report may establish INSTALLED; if that report is
+                // lost, the user must retry/reinstall rather than silently running an old APK.
+                android.util.Log.i(
+                    "ReconcileDiag",
+                    "not inferring install completion from package presence: state=${session.state} installedInWork=$installedInWork installSessionId=${session.installSessionId}"
+                )
             }
 
             SandboxSessionState.INSTALLED -> {
@@ -1018,6 +1086,18 @@ class DefaultSandboxSessionCoordinator(
                 info.sessionId,
                 SANDBOX_FILE_PROVIDER_AUTHORITY
             )
+            if (!awaitWorkSessionClosed(activity, info.sessionId)) {
+                val error = SandboxError(
+                    SandboxErrorCode.WORK_SESSION_STATE_UNKNOWN,
+                    "Could not confirm that the stale sandbox session closed. Please retry.",
+                    "endOrphanWithoutPersonalRow: Work active-session query did not confirm inactive for session=${info.sessionId}",
+                    Recoverability.RETRYABLE,
+                )
+                return SandboxOperationResult.Failure(
+                    repository.get(info.sessionId) ?: notFound(info.sessionId).session,
+                    error,
+                )
+            }
             SandboxOperationResult.Success(
                 repository.get(info.sessionId) ?: notFound(info.sessionId).session
             )
@@ -1032,6 +1112,36 @@ class DefaultSandboxSessionCoordinator(
                 repository.get(info.sessionId) ?: notFound(info.sessionId).session, error
             )
         }
+    }
+
+    /**
+     * The End Session handoff is asynchronous. Before reporting success to Personal, require a
+     * fresh Work-profile readback that the authoritative VPN session is gone. Without this barrier,
+     * the user can start a new session after the Personal row changes while Work is still forwarding
+     * the previous target.
+     */
+    private suspend fun awaitWorkSessionClosed(activity: Activity, sessionId: String): Boolean {
+        return kotlinx.coroutines.withTimeoutOrNull<Boolean>(WORK_SESSION_CLOSE_TIMEOUT_MS) {
+            var closed = false
+            while (!closed) {
+                val snapshot = try {
+                    queryWorkActiveSession(activity)
+                } catch (_: Exception) {
+                    null
+                }
+                if (snapshot == null) {
+                    kotlinx.coroutines.delay(250)
+                    continue
+                }
+                if (!snapshot.active) {
+                    closed = true
+                    continue
+                }
+                if (snapshot.sessionId != sessionId) return@withTimeoutOrNull false
+                kotlinx.coroutines.delay(250)
+            }
+            true
+        } ?: false
     }
 
     override suspend fun reconcileRunningSession(

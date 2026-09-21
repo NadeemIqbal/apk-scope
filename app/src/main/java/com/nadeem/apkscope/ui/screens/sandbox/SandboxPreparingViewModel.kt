@@ -146,10 +146,15 @@ class SandboxPreparingViewModel(
 
  init {
   viewModelScope.launch {
-   // Item 9/19: catches up on a cross-profile report that may have arrived (or an install/uninstall
-   // that completed) while this process was not running, using real authoritative Android state —
-   // not just whatever this Room row happened to say last.
-   coordinator.reconcile(sessionId)
+   // A newly-created session is reconciled by prepare() itself. Running another hidden
+   // cross-profile Activity here at the same time races the handoff and can leave the Work
+   // process handling two query Activities while it is installing the APK. Only reconcile an
+   // already-progressing session when this screen is being recreated.
+   coordinator.observe(sessionId).first()?.let { session ->
+    if (session.state != SandboxSessionState.CREATED && session.state != SandboxSessionState.PREPARING) {
+     coordinator.reconcile(sessionId)
+    }
+   }
    coordinator.observe(sessionId).collect { session ->
     // Preserve the install-settings remediation's own transient fields across a session-state
     // update — `from(session)` rebuilds every other field from scratch and would otherwise wipe
@@ -185,7 +190,9 @@ class SandboxPreparingViewModel(
   prepareStarted = true
   viewModelScope.launch {
    coordinator.prepare(activity, sessionId)
-   startStatusRecovery(activity)
+   // Do not immediately launch a second hidden Work-profile Activity. The real install/session
+   // report is the primary update path; reconciliation is reserved for an explicit retry or a
+   // later resume after the Work-side install flow has settled.
   }
  }
 
@@ -232,11 +239,11 @@ class SandboxPreparingViewModel(
   _uiState.value = _uiState.value.copy(showEndConfirmation = false)
  }
 
- fun confirmEndSession() {
+ fun confirmEndSession(activity: Activity) {
   if (_uiState.value.isEnding) return
   _uiState.value = _uiState.value.copy(showEndConfirmation = false, isEnding = true, endError = null)
   viewModelScope.launch {
-   when (val result = coordinator.cancel(sessionId)) {
+   when (val result = coordinator.end(activity, sessionId)) {
     is SandboxOperationResult.Success -> {
      _uiState.value = _uiState.value.copy(isEnding = false, navigateHome = true)
     }

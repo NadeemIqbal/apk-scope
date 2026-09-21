@@ -112,6 +112,12 @@ fun SandboxPreparingScreen(
  LaunchedEffect(state.showContinueInstallation) {
   if (state.showContinueInstallation) viewModel.continueInstallation(context as Activity)
  }
+ // Once the real Work-side preparation reaches READY, hand off to the Work monitor automatically.
+ // The profile switch and target launch are implementation details of the Frida flow, not steps
+ // the user should have to discover from a secondary button.
+ LaunchedEffect(state.showContinueToReady) {
+  if (state.showContinueToReady) onOpenWorkSandbox()
+ }
  BackHandler(onBack = onBack)
 
  if (state.showEndConfirmation) {
@@ -119,7 +125,7 @@ fun SandboxPreparingScreen(
    onDismissRequest = viewModel::dismissEndConfirmation,
    title = { Text("End Sandbox Session?") },
    text = { Text("This will cancel the in-progress sandbox setup and release the session. No dynamic analysis data will be saved.") },
-   confirmButton = { TextButton(onClick = viewModel::confirmEndSession) { Text("End Session") } },
+   confirmButton = { TextButton(onClick = { viewModel.confirmEndSession(context as Activity) }) { Text("End Session") } },
    dismissButton = { TextButton(onClick = viewModel::dismissEndConfirmation) { Text("Keep Session") } },
   )
  }

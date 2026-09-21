@@ -59,15 +59,23 @@ object SandboxStateMachine {
 
  /** Legal branches beyond the single happy-path successor above — each one a real, named lifecycle event (item 18/20), not a shortcut. */
  private val extraTransitions: Map<SandboxSessionState, Set<SandboxSessionState>> = mapOf(
+  // Cancellation from the Preparing screen is a real Work-side teardown, not just a Personal
+  // Room update. These states may already have established the VPN before installation finishes.
+  SandboxSessionState.CREATED to setOf(SandboxSessionState.ENDING),
+  SandboxSessionState.PREPARING to setOf(SandboxSessionState.ENDING),
+  SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION to setOf(SandboxSessionState.ENDING, SandboxSessionState.INSTALLED),
+  SandboxSessionState.INSTALLING to setOf(SandboxSessionState.ENDING),
+  SandboxSessionState.INSTALLED to setOf(SandboxSessionState.ENDING),
+  SandboxSessionState.LAUNCHING to setOf(SandboxSessionState.ENDING),
   // A prepared session can be ended before the target app is launched. The same cleanup
   // sequence still has to run so the Work-profile APK, data, and VPN state are released.
   SandboxSessionState.READY to setOf(SandboxSessionState.ENDING),
   SandboxSessionState.CLEARING_DATA to setOf(SandboxSessionState.CLEANUP_REQUIRED),
   SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION to setOf(SandboxSessionState.CLEANUP_REQUIRED),
   SandboxSessionState.CLEANUP to setOf(SandboxSessionState.CLEANUP_REQUIRED),
-  // INSTALLING is a transient Work-side report. If that report is lost while Android finishes
-  // the confirmation flow, package presence is the authoritative install confirmation.
-  SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION to setOf(SandboxSessionState.INSTALLED),
+  // INSTALLING is a transient Work-side report. Completion must come from the current
+  // PackageInstaller callback; package presence alone can describe an older APK with the same
+  // package name and therefore cannot be an install-completion fact.
   SandboxSessionState.CLEANUP_REQUIRED to setOf(SandboxSessionState.CLEANUP, SandboxSessionState.COMPLETED),
  )
 

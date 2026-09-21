@@ -27,6 +27,7 @@ import javax.security.auth.x500.X500Principal
 class ReVancedApkRepacker(private val context: Context) {
 
     private val TAG = "ReVancedApkRepacker"
+    private val copyBufferSize = 64 * 1024
 
     data class RepackResult(
         val success: Boolean,
@@ -43,6 +44,7 @@ class ReVancedApkRepacker(private val context: Context) {
         fileInjections: Map<String, ByteArray> = emptyMap(),
         onProgress: (fraction: Float, message: String) -> Unit = { _, _ -> },
     ): RepackResult {
+        var tempApk: File? = null
         try {
             Log.i(TAG, "Starting repack: ${inputApk.name}")
             onProgress(0f, "Reading original APK")
@@ -50,7 +52,7 @@ class ReVancedApkRepacker(private val context: Context) {
             val originalHash = inputApk.calculateSha256()
             onProgress(0.08f, "Injecting Frida Gadget and loader")
 
-            val tempApk = File(inputApk.parentFile, "temp_${System.currentTimeMillis()}.apk")
+            tempApk = File(inputApk.parentFile, "temp_${System.currentTimeMillis()}.apk")
             repackApkWithInjections(inputApk, tempApk, fileInjections)
             Log.i(TAG, "✓ APK repacked with file injections")
             onProgress(0.58f, "Aligning APK contents")
@@ -73,7 +75,21 @@ class ReVancedApkRepacker(private val context: Context) {
                 modifiedHash = modifiedHash,
                 signerSubject = cert.subjectX500Principal.name
             )
+        } catch (e: OutOfMemoryError) {
+            tempApk?.delete()
+            outputApk.delete()
+            Log.e(TAG, "Repack ran out of memory for ${inputApk.name}", e)
+            return RepackResult(
+                success = false,
+                outputApk = outputApk,
+                originalHash = "error",
+                modifiedHash = "error",
+                signerSubject = "error",
+                error = "This APK is too large to patch on the device. Try a smaller APK or free device memory and retry."
+            )
         } catch (e: Exception) {
+            tempApk?.delete()
+            outputApk.delete()
             Log.e(TAG, "Repack failed: ${e.message}", e)
             return RepackResult(
                 success = false,
@@ -209,21 +225,15 @@ class ReVancedApkRepacker(private val context: Context) {
 
                     if (entry.name == "resources.arsc") {
                         // Android 11+ requires resources.arsc to be STORED and 4-byte aligned.
-                        val arscBytes = zipFile.getInputStream(entry).use { it.readBytes() }
-                        writeStoredAligned(zipOutput, "resources.arsc", arscBytes)
+                        copyEntry(zipFile, entry, zipOutput, forceStoredAligned = true)
                         writtenEntries.add("resources.arsc")
                         continue
                     }
 
-                    // Preserve the original compression method. STORED entries (uncompressed dex/so
-                    // the platform mmaps) are re-stored and 4-byte aligned; everything else is
-                    // DEFLATED — with no data descriptor, thanks to commons-compress.
-                    val data = zipFile.getInputStream(entry).use { it.readBytes() }
-                    if (entry.method == ZipEntry.STORED) {
-                        writeStoredAligned(zipOutput, entry.name, data)
-                    } else {
-                        writeDeflated(zipOutput, entry.name, data)
-                    }
+                    // Preserve the original compression method without materializing the entire
+                    // APK entry. Large native libraries and APK assets are copied in chunks so a
+                    // large target cannot exhaust the app heap during repacking.
+                    copyEntry(zipFile, entry, zipOutput)
                     writtenEntries.add(entry.name)
                 }
 
@@ -235,6 +245,35 @@ class ReVancedApkRepacker(private val context: Context) {
                 }
             }
         }
+    }
+
+    private fun copyEntry(
+        zipFile: ZipFile,
+        sourceEntry: ZipEntry,
+        zipOutput: ZipArchiveOutputStream,
+        forceStoredAligned: Boolean = false,
+    ) {
+        val stored = forceStoredAligned || sourceEntry.method == ZipEntry.STORED
+        val outputEntry = ZipArchiveEntry(sourceEntry.name)
+        outputEntry.method = if (stored) ZipArchiveEntry.STORED else ZipArchiveEntry.DEFLATED
+        if (stored) {
+            require(sourceEntry.size >= 0 && sourceEntry.crc >= 0) {
+                "Stored APK entry ${sourceEntry.name} is missing size or CRC metadata"
+            }
+            outputEntry.size = sourceEntry.size
+            outputEntry.crc = sourceEntry.crc
+            outputEntry.setAlignment(4)
+        }
+        zipOutput.putArchiveEntry(outputEntry)
+        zipFile.getInputStream(sourceEntry).use { input ->
+            val buffer = ByteArray(copyBufferSize)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                zipOutput.write(buffer, 0, read)
+            }
+        }
+        zipOutput.closeArchiveEntry()
     }
 
     private fun writeDeflated(zipOutput: ZipArchiveOutputStream, name: String, content: ByteArray) {

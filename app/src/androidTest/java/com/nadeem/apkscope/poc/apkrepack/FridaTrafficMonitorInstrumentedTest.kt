@@ -1,5 +1,6 @@
 package com.nadeem.apkscope.poc.apkrepack
 
+import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.delay
@@ -16,6 +17,10 @@ import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
+import com.nadeem.apkscope.core.network.traffic.TrafficCaptureState
+import com.nadeem.apkscope.core.network.traffic.TrafficInspectionStore
 
 /** Real Android sockets and production channel state; does not claim injected JS execution. */
 @RunWith(AndroidJUnit4::class)
@@ -48,6 +53,73 @@ class FridaTrafficMonitorInstrumentedTest {
 
     private suspend fun readyTarget(pid: Int) = withTimeout(5_000) {
         monitor.status.first { it.commandReady && it.connectedPid == pid }
+    }
+
+    private suspend fun traffic(socket: Socket, direction: String, bytes: ByteArray) {
+        val before = monitor.status.value.capturedCount
+        val frame = JSONObject().put("type", "traffic").put("pkg", target)
+            .put("dir", direction).put("conn", "reused-native-handle").put("ts", 123456L)
+            .put("len", bytes.size).put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        socket.getOutputStream().write((frame.toString() + "\n").toByteArray())
+        withTimeout(5_000) { monitor.status.first { it.capturedCount > before } }
+    }
+
+    @Test
+    fun reconnectAndNewSessionCannotAttachResponsesToOldRequests() = runBlocking {
+        for (replaceSession in listOf(false, true)) {
+            val firstSession = startSession()
+            val port = readyListener().port
+            Socket("127.0.0.1", port).use { first ->
+                hello(first, 201)
+                readyTarget(201)
+                traffic(first, "out", "GET /old HTTP/1.1\r\nHost: old.example\r\n\r\n".toByteArray())
+            }
+            withTimeout(5_000) { monitor.status.first { !it.commandReady } }
+            val oldRecord = TrafficInspectionStore.all().single { it.sessionId == firstSession }
+            val nextSession = if (replaceSession) startSession() else firstSession
+            Socket("127.0.0.1", port).use { second ->
+                hello(second, 202)
+                readyTarget(202)
+                traffic(second, "in", "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nnew".toByteArray())
+                assertNull("Old request must remain unanswered", TrafficInspectionStore.get(oldRecord.id)!!.statusCode)
+                val unmatched = TrafficInspectionStore.all().single { it.sessionId == nextSession && it.statusCode == 200 }
+                assertEquals(TrafficCaptureState.UNSUPPORTED_PROTOCOL, unmatched.state)
+                assertNotEquals(oldRecord.id, unmatched.id)
+                traffic(second, "out", "GET /new HTTP/1.1\r\nHost: new.example\r\n\r\n".toByteArray())
+                val nextRequest = TrafficInspectionStore.all().single { it.sessionId == nextSession && it.url == "https://new.example/new" }
+                assertNotEquals(oldRecord.id, nextRequest.id) // identical native handle/timestamp
+            }
+            monitor.stop()
+        }
+    }
+
+    @Test
+    fun streamedAndCompressedBodiesPublishTruthfulTruncationAndByteCounts() = runBlocking {
+        val session = startSession()
+        val port = readyListener().port
+        Socket("127.0.0.1", port).use { socket ->
+            hello(socket, 203)
+            readyTarget(203)
+            traffic(socket, "out", "GET /large HTTP/1.1\r\nHost: test.example\r\n\r\n".toByteArray())
+            traffic(socket, "in", "HTTP/1.1 200 OK\r\nContent-Length: 120000\r\n\r\n".toByteArray())
+            repeat(3) { traffic(socket, "in", ByteArray(40_000) { 65 }) }
+            val large = TrafficInspectionStore.all().single { it.sessionId == session }
+            assertEquals(120_000L, large.responseBodyBytes)
+            assertEquals(64 * 1024, large.responseBody!!.length)
+            assertTrue(large.isTruncated)
+            assertEquals(TrafficCaptureState.TRUNCATED, large.state)
+
+            val output = ByteArrayOutputStream()
+            GZIPOutputStream(output).use { it.write(ByteArray(2 * 1024 * 1024)) }
+            val compressed = output.toByteArray()
+            traffic(socket, "out", "GET /compressed HTTP/1.1\r\nHost: test.example\r\n\r\n".toByteArray())
+            traffic(socket, "in", "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\n\r\n".toByteArray() + compressed)
+            val record = TrafficInspectionStore.all().single { it.sessionId == session && it.url.endsWith("/compressed") }
+            assertEquals(compressed.size.toLong(), record.responseBodyBytes)
+            assertTrue(record.responseBody!!.startsWith("[Binary Payload:"))
+            assertTrue(record.isTruncated)
+            assertEquals(TrafficCaptureState.TRUNCATED, record.state)
+        }
     }
 
     @After

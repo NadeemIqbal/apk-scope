@@ -25,8 +25,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedWriter
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.InetSocketAddress
@@ -34,8 +32,6 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import java.util.zip.GZIPInputStream
-import java.util.zip.Inflater
 
 /**
  * Listens for live HTTPS/WSS traffic captured by Frida script.
@@ -124,8 +120,12 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
     private val clientLock = Any()
     private val pendingCommandSources = ConcurrentHashMap<String, String>()
 
-    private val activeTransactions = ConcurrentHashMap<String, InFlightTransaction>()
-    private val http2Connections = ConcurrentHashMap<String, LiveHttp2ConnectionDecoder>()
+    // Native connection IDs may be reused after process restart. Parser state belongs to
+    // one authenticated socket, never to the long-lived monitor or a later session.
+    private class CaptureState {
+        val activeTransactions = mutableMapOf<String, InFlightTransaction>()
+        val http2Connections = mutableMapOf<String, LiveHttp2ConnectionDecoder>()
+    }
 
     private data class InFlightTransaction(
         val id: String,
@@ -137,12 +137,12 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
         var host: String,
         var port: Int = 443,
         val requestHeaders: MutableMap<String, String> = mutableMapOf(),
-        val requestBodyBuffer: ByteArrayOutputStream = ByteArrayOutputStream(),
+        val requestBodyBuffer: FridaBodyCapture = FridaBodyCapture(),
         var requestEncoding: String? = null,
         var statusCode: Int? = null,
         var statusMessage: String? = null,
         val responseHeaders: MutableMap<String, String> = mutableMapOf(),
-        val responseBodyBuffer: ByteArrayOutputStream = ByteArrayOutputStream(),
+        val responseBodyBuffer: FridaBodyCapture = FridaBodyCapture(),
         var responseEncoding: String? = null,
         var responseContentType: String? = null
     )
@@ -321,6 +321,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                     }
 
                     Log.i(TAG, "Target client connected: $packageName pid=${processId ?: "unknown"}")
+                    val captureState = CaptureState()
 
                     // Then: JSON-lines of traffic events
                     var line: String? = null
@@ -375,7 +376,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                             )
 
                             _trafficFlow.emit(traffic)
-                            processTrafficChunk(traffic, boundSessionId, boundTargetPackage)
+                            processTrafficChunk(traffic, boundSessionId, boundTargetPackage, captureState)
                             _status.update { it.copy(capturedCount = it.capturedCount + 1) }
                             Log.i(TAG, "Traffic chunk: ${traffic.pkg} ${traffic.dir} ${traffic.len}b conn=${traffic.conn}")
 
@@ -452,8 +453,6 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
             Log.e(TAG, "Error closing server socket: ${e.message}")
         }
         serverSocket = null
-        activeTransactions.clear()
-        http2Connections.clear()
         activeSessionId = null
         activeTargetPackage = null
         expectedChannelToken = null
@@ -585,7 +584,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
 
     fun isRunning(): Boolean = isRunning
 
-    private fun processTrafficChunk(traffic: CapturedTraffic, sessionId: String?, targetPackage: String?) {
+    private fun processTrafficChunk(traffic: CapturedTraffic, sessionId: String?, targetPackage: String?, captureState: CaptureState) {
         val rawBytes = traffic.decodeData()
         if (rawBytes.isEmpty()) return
 
@@ -594,22 +593,22 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
         // SSL_read/SSL_write sees plaintext after TLS. Once a connection announces the HTTP/2
         // preface, keep its directional HPACK state here and never route its binary frames through
         // the HTTP/1 parser.
-        val http2 = http2Connections[connKey]
+        val http2 = captureState.http2Connections[connKey]
         if (traffic.source == "tls" && (http2 != null || isHttp2Preface(rawBytes))) {
             val decoder = http2 ?: LiveHttp2ConnectionDecoder(
                 defaultHost = traffic.pkg,
                 sessionId = sessionId,
                 targetPackage = targetPackage ?: traffic.pkg,
                 onRecord = TrafficInspectionStore::record
-            ).also { http2Connections[connKey] = it }
+            ).also { captureState.http2Connections[connKey] = it }
             decoder.feed(clientToServer = traffic.dir == "out", bytes = rawBytes)
             return
         }
 
         if (traffic.dir == "out") {
-            handleOutbound(traffic, rawBytes, connKey, sessionId, targetPackage)
+            handleOutbound(traffic, rawBytes, connKey, sessionId, targetPackage, captureState)
         } else {
-            handleInbound(traffic, rawBytes, connKey, sessionId, targetPackage)
+            handleInbound(traffic, rawBytes, connKey, sessionId, targetPackage, captureState)
         }
     }
 
@@ -618,7 +617,8 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
         rawBytes: ByteArray,
         connKey: String,
         sessionId: String?,
-        targetPackage: String?
+        targetPackage: String?,
+        captureState: CaptureState,
     ) {
         if (isHttp2Preface(rawBytes) || isHttp2ControlFrame(rawBytes)) {
             Log.d(TAG, "Ignoring HTTP/2 setup/control outbound frame")
@@ -653,7 +653,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
             val encoding = headers["content-encoding"] ?: headers["Content-Encoding"]
             val contentType = headers["content-type"] ?: headers["Content-Type"]
 
-            val txId = "frida-${traffic.pkg}-${traffic.conn}-${traffic.ts}"
+            val txId = "frida-${java.util.UUID.randomUUID()}"
             val tx = InFlightTransaction(
                 id = txId,
                 connId = traffic.conn,
@@ -669,9 +669,9 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
             if (bodyOffset < rawBytes.size) {
                 tx.requestBodyBuffer.write(rawBytes, bodyOffset, rawBytes.size - bodyOffset)
             }
-            activeTransactions[connKey] = tx
+            captureState.activeTransactions[connKey] = tx
 
-            val decodedReqBody = decodeBodyPreview(tx.requestBodyBuffer.toByteArray(), tx.requestEncoding, contentType)
+            val decodedReqBody = decodeBodyPreview(tx.requestBodyBuffer, tx.requestEncoding, contentType)
             val record = TrafficRecord(
                 id = tx.id,
                 sessionId = sessionId,
@@ -683,24 +683,26 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                 url = tx.url,
                 method = tx.method,
                 requestHeaders = tx.requestHeaders,
-                requestBody = decodedReqBody,
-                requestBodyBytes = tx.requestBodyBuffer.size().toLong(),
+                requestBody = decodedReqBody.text,
+                requestBodyBytes = tx.requestBodyBuffer.observedBytes,
+                isTruncated = decodedReqBody.truncated,
                 state = TrafficCaptureState.DECODED
             )
             TrafficInspectionStore.record(record)
         } else {
-            val tx = activeTransactions[connKey]
+            val tx = captureState.activeTransactions[connKey]
             if (tx != null && tx.statusCode == null) {
                 tx.requestBodyBuffer.write(rawBytes)
                 val decodedReqBody = decodeBodyPreview(
-                    tx.requestBodyBuffer.toByteArray(),
+                    tx.requestBodyBuffer,
                     tx.requestEncoding,
                     tx.requestHeaders["content-type"]
                 )
                 TrafficInspectionStore.updateRecord(tx.id) { rec ->
                     rec.copy(
-                        requestBody = decodedReqBody,
-                        requestBodyBytes = tx.requestBodyBuffer.size().toLong()
+                        requestBody = decodedReqBody.text,
+                        requestBodyBytes = tx.requestBodyBuffer.observedBytes,
+                        isTruncated = rec.isTruncated || decodedReqBody.truncated,
                     )
                 }
             }
@@ -712,7 +714,8 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
         rawBytes: ByteArray,
         connKey: String,
         sessionId: String?,
-        targetPackage: String?
+        targetPackage: String?,
+        captureState: CaptureState,
     ) {
         if (isHttp2ControlFrame(rawBytes)) {
             Log.d(TAG, "Ignoring HTTP/2 control inbound frame (${rawBytes.size}b)")
@@ -739,7 +742,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
             val encoding = headers["content-encoding"] ?: headers["Content-Encoding"]
             val contentType = headers["content-type"] ?: headers["Content-Type"]
 
-            val tx = activeTransactions[connKey]
+            val tx = captureState.activeTransactions[connKey]
             if (tx != null) {
                 tx.statusCode = statusCode
                 tx.statusMessage = statusMessage
@@ -751,7 +754,7 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                     tx.responseBodyBuffer.write(rawBytes, bodyOffset, rawBytes.size - bodyOffset)
                 }
 
-                val decodedRespBody = decodeBodyPreview(tx.responseBodyBuffer.toByteArray(), tx.responseEncoding, contentType)
+                val decodedRespBody = decodeBodyPreview(tx.responseBodyBuffer, tx.responseEncoding, contentType)
                 val duration = System.currentTimeMillis() - tx.startTime
 
                 TrafficInspectionStore.updateRecord(tx.id) { rec ->
@@ -760,8 +763,9 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                         statusMessage = tx.statusMessage,
                         contentType = tx.responseContentType ?: rec.contentType,
                         responseHeaders = tx.responseHeaders,
-                        responseBody = decodedRespBody,
-                        responseBodyBytes = tx.responseBodyBuffer.size().toLong(),
+                        responseBody = decodedRespBody.text,
+                        responseBodyBytes = tx.responseBodyBuffer.observedBytes,
+                        isTruncated = rec.isTruncated || decodedRespBody.truncated,
                         durationMs = duration,
                         state = TrafficCaptureState.DECODED
                     )
@@ -772,9 +776,9 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                 } else {
                     ByteArray(0)
                 }
-                val decodedRespBody = decodeBodyPreview(respBodyBytes, encoding, contentType)
+                val decodedRespBody = decodeBodyPreview(FridaBodyCapture().apply { write(respBodyBytes) }, encoding, contentType)
                 val record = TrafficRecord(
-                    id = "frida-${traffic.pkg}-${traffic.conn}-${traffic.ts}",
+                    id = "frida-${java.util.UUID.randomUUID()}",
                     sessionId = sessionId,
                     targetPackage = targetPackage ?: traffic.pkg,
                     timestamp = Instant.ofEpochMilli(traffic.ts),
@@ -787,7 +791,8 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                     statusMessage = statusMessage,
                     contentType = contentType,
                     responseHeaders = headers,
-                    responseBody = decodedRespBody,
+                    responseBody = decodedRespBody.text,
+                    isTruncated = decodedRespBody.truncated,
                     responseBodyBytes = respBodyBytes.size.toLong(),
                     state = TrafficCaptureState.UNSUPPORTED_PROTOCOL,
                     failureDetails = "Raw Frida I/O bytes; HTTP/1.x framing was not detected"
@@ -795,26 +800,27 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                 TrafficInspectionStore.record(record)
             }
         } else {
-            val tx = activeTransactions[connKey]
+            val tx = captureState.activeTransactions[connKey]
             if (tx != null && tx.statusCode != null) {
                 tx.responseBodyBuffer.write(rawBytes)
                 val decodedRespBody = decodeBodyPreview(
-                    tx.responseBodyBuffer.toByteArray(),
+                    tx.responseBodyBuffer,
                     tx.responseEncoding,
                     tx.responseContentType
                 )
                 val duration = System.currentTimeMillis() - tx.startTime
                 TrafficInspectionStore.updateRecord(tx.id) { rec ->
                     rec.copy(
-                        responseBody = decodedRespBody,
-                        responseBodyBytes = tx.responseBodyBuffer.size().toLong(),
+                        responseBody = decodedRespBody.text,
+                        responseBodyBytes = tx.responseBodyBuffer.observedBytes,
+                        isTruncated = rec.isTruncated || decodedRespBody.truncated,
                         durationMs = duration
                     )
                 }
             } else {
-                val decoded = decodeBodyPreview(rawBytes, null, null)
+                val decoded = decodeBodyPreview(FridaBodyCapture().apply { write(rawBytes) }, null, null)
                 val record = TrafficRecord(
-                    id = "frida-chunk-${traffic.pkg}-${traffic.ts}-${traffic.len}",
+                    id = "frida-chunk-${java.util.UUID.randomUUID()}",
                     sessionId = sessionId,
                     targetPackage = targetPackage ?: traffic.pkg,
                     timestamp = Instant.ofEpochMilli(traffic.ts),
@@ -823,8 +829,9 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
                     port = 443,
                     url = "[Payload Chunk ${traffic.len}b]",
                     method = traffic.dir.uppercase(),
-                    requestBody = if (traffic.dir == "out") decoded else null,
-                    responseBody = if (traffic.dir == "in") decoded else null,
+                    requestBody = if (traffic.dir == "out") decoded.text else null,
+                    responseBody = if (traffic.dir == "in") decoded.text else null,
+                    isTruncated = decoded.truncated,
                     requestBodyBytes = if (traffic.dir == "out") traffic.len.toLong() else 0L,
                     responseBodyBytes = if (traffic.dir == "in") traffic.len.toLong() else 0L,
                     state = TrafficCaptureState.UNSUPPORTED_PROTOCOL,
@@ -835,71 +842,20 @@ class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
         }
     }
 
-    private fun decodeBodyPreview(bytes: ByteArray, encoding: String?, contentType: String?): String {
-        if (bytes.isEmpty()) return ""
+    private data class BodyPreview(val text: String, val truncated: Boolean)
 
-        // 1. Automatic Gzip / Deflate decompression
-        val decompressed = try {
-            when {
-                encoding?.equals("gzip", ignoreCase = true) == true || isGzip(bytes) -> decompressGzip(bytes)
-                encoding?.equals("deflate", ignoreCase = true) == true || isZlibDeflate(bytes) -> decompressDeflate(bytes)
-                else -> bytes
-            }
-        } catch (e: Exception) {
-            bytes
+    private fun decodeBodyPreview(capture: FridaBodyCapture, encoding: String?, contentType: String?): BodyPreview {
+        val decoded = capture.decode(encoding)
+        val bytes = decoded.bytes
+        val preview = if (isMostlyPrintableText(bytes)) {
+            tryPrettyPrintJson(String(bytes, Charsets.UTF_8))
+        } else {
+            val binType = detectBinaryType(bytes) ?: contentType ?: "application/octet-stream"
+            val hex = bytes.take(48).joinToString(" ") { "%02X".format(it) }
+            "[Binary Payload: $binType (${bytes.size} preview bytes)]\nHex: $hex..."
         }
-
-        // 2. Plain text / JSON validation
-        if (isMostlyPrintableText(decompressed)) {
-            val text = String(decompressed, Charsets.UTF_8)
-            return tryPrettyPrintJson(text)
-        }
-
-        // 3. Binary media summary (never show corrupted binary noise)
-        val binType = detectBinaryType(decompressed) ?: contentType ?: "application/octet-stream"
-        val hex = decompressed.take(48).joinToString(" ") { "%02X".format(it) }
-        return "[Binary Payload: $binType (${decompressed.size} bytes)]\nHex: $hex..."
-    }
-
-    private fun isGzip(bytes: ByteArray): Boolean {
-        return bytes.size >= 2 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x8B.toByte()
-    }
-
-    private fun isZlibDeflate(bytes: ByteArray): Boolean {
-        return bytes.size >= 2 && bytes[0] == 0x78.toByte() &&
-                (bytes[1] == 0x01.toByte() || bytes[1] == 0x9C.toByte() || bytes[1] == 0xDA.toByte())
-    }
-
-    private fun decompressGzip(bytes: ByteArray): ByteArray {
-        return GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-    }
-
-    private fun decompressDeflate(bytes: ByteArray): ByteArray {
-        val inflater = Inflater(false)
-        inflater.setInput(bytes)
-        val out = ByteArrayOutputStream(bytes.size * 2)
-        val buf = ByteArray(4096)
-        try {
-            while (!inflater.finished()) {
-                val count = inflater.inflate(buf)
-                if (count <= 0) break
-                out.write(buf, 0, count)
-            }
-        } catch (_: Exception) {
-            val rawInflater = Inflater(true)
-            rawInflater.setInput(bytes)
-            val rawOut = ByteArrayOutputStream(bytes.size * 2)
-            while (!rawInflater.finished()) {
-                val count = rawInflater.inflate(buf)
-                if (count <= 0) break
-                rawOut.write(buf, 0, count)
-            }
-            rawInflater.end()
-            return rawOut.toByteArray()
-        } finally {
-            inflater.end()
-        }
-        return out.toByteArray()
+        val bounded = TrafficInspectionStore.truncateBody(preview)
+        return BodyPreview(bounded.first.orEmpty(), decoded.truncated || bounded.second)
     }
 
     private fun isMostlyPrintableText(bytes: ByteArray): Boolean {

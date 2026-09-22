@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,7 +44,7 @@ import java.util.zip.Inflater
  * Implements complete HTTP/1.x stream reassembly, automatic Gzip/Deflate decompression,
  * JSON formatting, and connection-aware request/response transaction correlation.
  */
-class FridaTrafficMonitor {
+class FridaTrafficMonitor(private val listenPort: Int = LISTEN_PORT) {
 
     private val TAG = "FridaTrafficMonitor"
 
@@ -111,11 +113,12 @@ class FridaTrafficMonitor {
     val commandResults: SharedFlow<CommandResult> = _commandResults
 
     private var serverSocket: ServerSocket? = null
+    private var serverGeneration = 0L
     @Volatile
     private var isRunning = false
-    private var activeSessionId: String? = null
-    private var activeTargetPackage: String? = null
-    private var expectedChannelToken: String? = null
+    @Volatile private var activeSessionId: String? = null
+    @Volatile private var activeTargetPackage: String? = null
+    @Volatile private var expectedChannelToken: String? = null
     private var activeClientSocket: Socket? = null
     private var activeClientWriter: BufferedWriter? = null
     private val clientLock = Any()
@@ -153,7 +156,7 @@ class FridaTrafficMonitor {
         startInternal(sessionId, targetPackage, FridaChannelConfig.readToken(context, sessionId))
     }
 
-    private fun startInternal(sessionId: String?, targetPackage: String?, channelToken: String?) {
+    private fun startInternal(sessionId: String?, targetPackage: String?, channelToken: String?): Unit = synchronized(clientLock) {
         val targetChanged = isRunning && (
             activeSessionId != sessionId ||
                 activeTargetPackage != targetPackage ||
@@ -167,63 +170,64 @@ class FridaTrafficMonitor {
             return
         }
         if (targetChanged) {
-            synchronized(clientLock) {
-                runCatching { activeClientSocket?.close() }
-                activeClientSocket = null
-                activeClientWriter = null
-            }
+            runCatching { activeClientSocket?.close() }
+            activeClientSocket = null
+            activeClientWriter = null
             pendingCommandSources.clear()
         }
         activeSessionId = sessionId
         activeTargetPackage = targetPackage
         expectedChannelToken = channelToken
-        _status.value = _status.value.copy(
+        _status.update { it.copy(
             targetPackage = targetPackage,
+            connectedPackage = null,
+            connectedPid = null,
             commandReady = false,
             lastCommand = null,
-        )
+        ) }
         if (isRunning) {
             Log.i(TAG, "Traffic monitor already active, session=$sessionId, target=$targetPackage")
             return
         }
 
-        synchronized(this) {
-            if (isRunning) return
-            isRunning = true
-        }
-
+        isRunning = true
+        val generation = ++serverGeneration
         serverJob = monitorScope.launch {
-            runServer()
+            runServer(generation)
         }
     }
 
-    private suspend fun runServer() {
+    private suspend fun runServer(generation: Long) {
         withContext(Dispatchers.IO) {
+            var listener: ServerSocket? = null
             try {
-                try {
-                    serverSocket?.close()
-                } catch (_: Exception) {}
-
-                serverSocket = ServerSocket().apply {
-                    reuseAddress = true
-                    bind(InetSocketAddress("127.0.0.1", LISTEN_PORT))
+                synchronized(clientLock) {
+                    if (!isRunning || generation != serverGeneration) return@withContext
+                    listener = ServerSocket()
+                    listener.also {
+                        it.reuseAddress = true
+                        it.bind(InetSocketAddress("127.0.0.1", listenPort))
+                    }
+                    serverSocket = listener
+                    _status.update { it.copy(
+                        isListening = true,
+                        port = listener.localPort,
+                        targetPackage = activeTargetPackage,
+                        commandReady = false,
+                        lastError = if (activeTargetPackage != null && expectedChannelToken == null) {
+                            "Target channel token is unavailable for this session"
+                        } else null,
+                    ) }
                 }
-                _status.value = _status.value.copy(
-                    isListening = true,
-                    targetPackage = activeTargetPackage,
-                    commandReady = false,
-                    lastError = if (activeTargetPackage != null && expectedChannelToken == null) {
-                        "Target channel token is unavailable for this session"
-                    } else null,
-                )
-                Log.i(TAG, "Traffic monitor server listening on 127.0.0.1:$LISTEN_PORT")
+                val boundListener = checkNotNull(listener)
+                Log.i(TAG, "Traffic monitor server listening on 127.0.0.1:${boundListener.localPort}")
 
                 while (isRunning && isActive) {
                     try {
-                        val clientSocket = serverSocket?.accept() ?: break
+                        val clientSocket = boundListener.accept()
                         Log.i(TAG, "New client connected: ${clientSocket.remoteSocketAddress}")
                         monitorScope.launch {
-                            handleClient(clientSocket)
+                            handleClient(clientSocket, generation)
                         }
                     } catch (e: Exception) {
                         if (isRunning && isActive) {
@@ -233,19 +237,25 @@ class FridaTrafficMonitor {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start monitor: ${e.message}", e)
-                _status.value = _status.value.copy(isListening = false, lastError = e.message)
+                synchronized(clientLock) {
+                    if (generation == serverGeneration) {
+                        _status.update { it.copy(isListening = false, lastError = e.message) }
+                    }
+                }
             } finally {
-                isRunning = false
-                try {
-                    serverSocket?.close()
-                } catch (_: Exception) {}
-                serverSocket = null
-                _status.value = _status.value.copy(isListening = false)
+                runCatching { listener?.close() }
+                synchronized(clientLock) {
+                    if (generation == serverGeneration) {
+                        isRunning = false
+                        serverSocket = null
+                        _status.update { it.copy(isListening = false) }
+                    }
+                }
             }
         }
     }
 
-    private suspend fun handleClient(clientSocket: Socket) {
+    private suspend fun handleClient(clientSocket: Socket, generation: Long) {
         withContext(Dispatchers.IO) {
             var packageName = "unknown"
             var processId: Int? = null
@@ -256,6 +266,7 @@ class FridaTrafficMonitor {
 
             try {
                 clientSocket.use { socket ->
+                    socket.soTimeout = 5_000 // unauthenticated clients must not occupy a reader forever
                     val reader = BoundedLineReader(socket.inputStream, FridaChannelConfig.MAX_COMMAND_CHARS)
                     val writer = socket.outputStream.bufferedWriter(Charsets.UTF_8)
 
@@ -288,23 +299,27 @@ class FridaTrafficMonitor {
                     }
 
                     synchronized(clientLock) {
-                        if (activeClientSocket != null) return@synchronized
+                        if (!isRunning || generation != serverGeneration || activeClientSocket != null ||
+                            activeSessionId != boundSessionId || activeTargetPackage != boundTargetPackage ||
+                            expectedChannelToken != boundChannelToken
+                        ) return@synchronized
                         activeClientSocket = socket
                         activeClientWriter = writer
                         accepted = true
+                        socket.soTimeout = 0
+                        _status.update { it.copy(
+                            connectedPackage = packageName,
+                            connectedPid = processId,
+                            targetPackage = boundTargetPackage,
+                            commandReady = boundTargetPackage != null && boundChannelToken != null,
+                            lastError = null,
+                        ) }
                     }
                     if (!accepted) {
                         sendProtocolError(writer, "", "another target connection is already active")
                         return@use
                     }
 
-                    _status.value = _status.value.copy(
-                        connectedPackage = packageName,
-                        connectedPid = processId,
-                        targetPackage = boundTargetPackage,
-                        commandReady = boundTargetPackage != null && expectedChannelToken != null,
-                        lastError = null,
-                    )
                     Log.i(TAG, "Target client connected: $packageName pid=${processId ?: "unknown"}")
 
                     // Then: JSON-lines of traffic events
@@ -324,14 +339,18 @@ class FridaTrafficMonitor {
                                     val result = CommandResult(
                                         id = obj.optString("id", ""),
                                         ok = obj.optBoolean("ok", false),
-                                        result = obj.opt("result")?.toString(),
-                                        error = obj.opt("error")?.toString(),
+                                        result = obj.optionalJsonString("result"),
+                                        error = obj.optionalJsonString("error"),
                                         source = pendingCommandSources.remove(obj.optString("id", "")),
                                         targetPackage = packageName,
                                         sessionId = boundSessionId,
                                         timestamp = obj.optLong("ts", System.currentTimeMillis()),
                                     )
-                                    _status.value = _status.value.copy(lastCommand = result, lastError = result.error)
+                                    synchronized(clientLock) {
+                                        if (activeClientSocket === socket) {
+                                            _status.update { it.copy(lastCommand = result, lastError = result.error) }
+                                        }
+                                    }
                                     _commandResults.emit(result)
                                     continue
                                 }
@@ -357,10 +376,7 @@ class FridaTrafficMonitor {
 
                             _trafficFlow.emit(traffic)
                             processTrafficChunk(traffic, boundSessionId, boundTargetPackage)
-                            _status.value = _status.value.copy(
-                                capturedCount = _status.value.capturedCount + 1,
-                                lastError = null
-                            )
+                            _status.update { it.copy(capturedCount = it.capturedCount + 1) }
                             Log.i(TAG, "Traffic chunk: ${traffic.pkg} ${traffic.dir} ${traffic.len}b conn=${traffic.conn}")
 
                         } catch (e: Exception) {
@@ -376,14 +392,12 @@ class FridaTrafficMonitor {
                     if (activeClientSocket === clientSocket) {
                         activeClientSocket = null
                         activeClientWriter = null
+                        _status.update { it.copy(
+                            connectedPackage = null,
+                            connectedPid = null,
+                            commandReady = false,
+                        ) }
                     }
-                }
-                if (accepted) {
-                    _status.value = _status.value.copy(
-                        connectedPackage = null,
-                        connectedPid = null,
-                        commandReady = false,
-                    )
                 }
                 try {
                     clientSocket.close()
@@ -425,14 +439,13 @@ class FridaTrafficMonitor {
         }
     }
 
-    fun stop() {
+    fun stop(): Unit = synchronized(clientLock) {
         isRunning = false
+        serverGeneration++
         serverJob?.cancel()
-        synchronized(clientLock) {
-            runCatching { activeClientSocket?.close() }
-            activeClientSocket = null
-            activeClientWriter = null
-        }
+        runCatching { activeClientSocket?.close() }
+        activeClientSocket = null
+        activeClientWriter = null
         try {
             serverSocket?.close()
         } catch (e: Exception) {
@@ -445,19 +458,19 @@ class FridaTrafficMonitor {
         activeTargetPackage = null
         expectedChannelToken = null
         pendingCommandSources.clear()
-        _status.value = _status.value.copy(
+        _status.update { it.copy(
             isListening = false,
             connectedPackage = null,
             connectedPid = null,
             targetPackage = null,
             commandReady = false,
             lastCommand = null,
-        )
+        ) }
         Log.i(TAG, "Traffic monitor stopped")
     }
 
     /** Send JavaScript for evaluation in the already-authenticated active target process. */
-    fun sendScript(source: String): CommandDispatch {
+    fun sendScript(source: String): CommandDispatch = synchronized(clientLock) {
         if (source.isBlank()) return CommandDispatch(false, error = "Enter a script first")
         if (source.length > FridaChannelConfig.MAX_COMMAND_CHARS) {
             return CommandDispatch(false, error = "Script exceeds the 256 KiB limit")
@@ -491,41 +504,69 @@ class FridaTrafficMonitor {
             return CommandDispatch(false, error = "Serialized command exceeds the 256 KiB limit")
         }
 
+        val dispatchSocket = activeClientSocket
+            ?: return CommandDispatch(false, error = "The target APK is not connected")
+        val dispatchWriter = activeClientWriter
+            ?: return CommandDispatch(false, error = "The target APK is not connected")
+        if (pendingCommandSources.size >= 128) {
+            return CommandDispatch(false, error = "Too many commands are waiting for the target. Wait for responses or restart the session.")
+        }
         pendingCommandSources[id] = source
         val dispatchSessionId = activeSessionId
         monitorScope.launch {
+            delay(COMMAND_RESPONSE_TIMEOUT_MS)
+            // Keep the source after the soft timeout. Android may freeze the target while APK
+            // Scope is in the foreground; when the target is resumed it can still deliver the
+            // real result. The later command_result uses the same id and replaces this interim
+            // timeout entry in the console transcript.
+            val pendingSource = pendingCommandSources[id] ?: return@launch
+            _commandResults.emit(
+                CommandResult(
+                    id = id,
+                    ok = false,
+                    result = null,
+                    error = "The target has not responded yet. Keep the target app open and its result will appear here when Android resumes it.",
+                    source = pendingSource,
+                    targetPackage = target,
+                    sessionId = dispatchSessionId,
+                ),
+            )
+        }
+        monitorScope.launch {
             try {
-                // Socket I/O must stay off the Compose/main thread. Serialize the entire write
-                // with connection replacement/close; otherwise a reconnect can close the writer
-                // between the active-connection check and flush.
-                synchronized(clientLock) {
-                    val socket = activeClientSocket
-                    val writer = activeClientWriter
-                    if (socket == null || writer == null || !_status.value.commandReady ||
-                        activeSessionId != dispatchSessionId || activeTargetPackage != target
-                    ) {
-                        throw IOException("target channel closed before command write")
+                // Serialize frames on this writer, not the lifecycle lock. A stalled target
+                // must not prevent stop()/reconnect from closing its socket to unblock I/O.
+                synchronized(dispatchWriter) {
+                    synchronized(clientLock) {
+                        if (activeClientSocket !== dispatchSocket || !_status.value.commandReady ||
+                            activeSessionId != dispatchSessionId || activeTargetPackage != target || expectedChannelToken != token
+                        ) {
+                            throw IOException("target channel closed before command write")
+                        }
                     }
-                    writer.write(commandJson)
-                    writer.newLine()
-                    writer.flush()
+                    dispatchWriter.write(commandJson)
+                    dispatchWriter.newLine()
+                    dispatchWriter.flush()
                 }
                 Log.i(TAG, "Command sent id=$id target=$target sourceChars=${source.length}")
             } catch (e: Exception) {
                 pendingCommandSources.remove(id)
-                synchronized(clientLock) {
-                    runCatching { activeClientSocket?.close() }
-                    activeClientSocket = null
-                    activeClientWriter = null
-                }
                 val detail = "${e.javaClass.simpleName}: ${e.message ?: "no message"}"
+                synchronized(clientLock) {
+                    // A queued write from the old channel must never close its replacement.
+                    if (activeClientSocket === dispatchSocket) {
+                        runCatching { dispatchSocket.close() }
+                        activeClientSocket = null
+                        activeClientWriter = null
+                        _status.update { it.copy(
+                            connectedPackage = null,
+                            connectedPid = null,
+                            commandReady = false,
+                            lastError = "Command send failed: $detail",
+                        ) }
+                    }
+                }
                 Log.e(TAG, "Command send failed id=$id target=$target ($detail)", e)
-                _status.value = _status.value.copy(
-                    connectedPackage = null,
-                    connectedPid = null,
-                    commandReady = false,
-                    lastError = "Command send failed: $detail",
-                )
                 _commandResults.emit(
                     CommandResult(
                         id = id,
@@ -951,8 +992,14 @@ class FridaTrafficMonitor {
 
     companion object {
         private const val LISTEN_PORT = 9999
+        private const val COMMAND_RESPONSE_TIMEOUT_MS = 15_000L
         private val HTTP_REQUEST_REGEX = Regex("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT)\\s+([^\\s]+)\\s+HTTP/1\\.[01]", RegexOption.IGNORE_CASE)
         private val HTTP_RESPONSE_REGEX = Regex("^HTTP/1\\.[01]\\s+(\\d{3})(?:\\s+([^\\r\\n]*))?", RegexOption.IGNORE_CASE)
         val shared = FridaTrafficMonitor()
     }
+}
+
+private fun JSONObject.optionalJsonString(key: String): String? {
+    val value = opt(key)
+    return if (value == null || value === JSONObject.NULL) null else value.toString()
 }

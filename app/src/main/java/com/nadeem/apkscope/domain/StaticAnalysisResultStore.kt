@@ -222,34 +222,36 @@ object StaticAnalysisFileStore {
     /** Arbitrary 4-byte marker distinguishing this codebase's own envelope from anything else that might occupy this path (a foreign file, a future format, plain corruption). */
     private const val MAGIC = 0x41535253 // "ASRS" as bytes, read as a big-endian int
     private const val FORMAT_VERSION = 1
+    private const val HEADER_BYTES = 20L
+    private const val MAX_PAYLOAD_BYTES = 64 * 1024 * 1024
 
     fun write(target: File, data: PersistedStaticData) {
         val payload = java.io.ByteArrayOutputStream().also { buf ->
             ObjectOutputStream(buf).use { it.writeObject(data) }
         }.toByteArray()
+        require(payload.size <= MAX_PAYLOAD_BYTES) { "Static analysis cache exceeds 64 MiB" }
         val crc = java.util.zip.CRC32().apply { update(payload) }.value
 
-        // Assembled as one plain byte array — header first, then length+CRC32, then the object
-        // payload — with *no* Java-serialization wrapper around the whole thing (that would put an
-        // arbitrary-object deserialization step back in front of the header/checksum check on read,
-        // defeating its purpose). AtomicFileWriter.writeBytes writes it verbatim, atomically.
-        val bytes = java.io.ByteArrayOutputStream().also { buf ->
-            DataOutputStream(buf).apply {
+        // Keep the same envelope, but stream it into the atomic temporary file instead of
+        // allocating another full-size buffer and then copying that buffer into a byte array.
+        AtomicFileWriter.writeAtomically(target) { output ->
+            DataOutputStream(output).apply {
                 writeInt(MAGIC)
                 writeInt(FORMAT_VERSION)
                 writeInt(payload.size)
                 writeLong(crc)
+                write(payload)
                 flush()
             }
-            buf.write(payload)
-        }.toByteArray()
-        AtomicFileWriter.writeBytes(target, bytes)
+        }
     }
 
     /** Returns null for: file absent, header mismatch (wrong magic/version — a foreign or corrupted file), a length/CRC32 mismatch (payload corruption), or any deserialization failure — every one of these is treated as a cache miss, never as a reason to propagate a parsed-but-wrong object. */
     fun read(source: File): PersistedStaticData? {
         if (!source.exists() || !source.canRead()) return null
         FileInputStream(source).use { fileIn ->
+            val fileSize = fileIn.channel.size()
+            if (fileSize < HEADER_BYTES || fileSize - HEADER_BYTES > MAX_PAYLOAD_BYTES) return null
             val header = DataInputStream(fileIn)
             val magic = header.readInt()
             val version = header.readInt()
@@ -258,7 +260,7 @@ object StaticAnalysisFileStore {
             // primitive ints match exactly — a header mismatch never reaches `readObject()` at all.
             if (magic != MAGIC || version != FORMAT_VERSION) return null
             val payloadLength = header.readInt()
-            if (payloadLength < 0) return null
+            if (payloadLength < 0 || payloadLength.toLong() != fileSize - HEADER_BYTES) return null
             val expectedCrc = header.readLong()
             val payload = ByteArray(payloadLength)
             header.readFully(payload) // throws EOFException on a truncated file — caught by StaticAnalysisResultStore's own try/catch, treated as a failed read, not a crash

@@ -5,6 +5,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.zip.ZipFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Milestone 10 (Security Audit), Phase 10.3, MS10-NET01 correction — [ResourceTableParser] resolves a
@@ -55,6 +57,20 @@ class ResourceTableParserTest {
 
   val result = ResourceTableParser.resolveFileResource(arsc, 0x01010000) // package 0x01 does not exist in this table
   assertEquals(ResourceTableParser.ResolveResult.NotFound, result)
+ }
+
+ @Test
+ fun malformedChunkIsParseFailedNotResourceAbsent() {
+  val bytes = ByteBuffer.allocate(20).order(ByteOrder.LITTLE_ENDIAN).apply {
+   putShort(2)
+   putShort(12)
+   putInt(20)
+   putInt(1)
+   putShort(1)
+   putShort(8)
+   putInt(Int.MAX_VALUE)
+  }.array()
+  assertTrue(ResourceTableParser.resolveFileResource(bytes, 0x7f010000) is ResourceTableParser.ResolveResult.ParseFailed)
  }
 
  @Test

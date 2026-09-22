@@ -41,7 +41,7 @@ object AtomicFileWriter {
         writeAtomically(target) { out -> out.write(bytes) }
     }
 
-    private fun writeAtomically(target: File, writeTo: (java.io.OutputStream) -> Unit) {
+    internal fun writeAtomically(target: File, writeTo: (java.io.OutputStream) -> Unit) {
         val dir = target.parentFile ?: throw java.io.IOException("target file has no parent directory: $target")
         dir.mkdirs()
         val temp = File.createTempFile("${target.name}.", ".tmp", dir)

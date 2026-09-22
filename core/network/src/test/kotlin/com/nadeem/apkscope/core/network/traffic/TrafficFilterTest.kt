@@ -63,6 +63,46 @@ class TrafficFilterTest {
     }
 
     @Test
+    fun updatedBodiesCannotBypassPreviewLimit() {
+        TrafficInspectionStore.record(TrafficRecord(id = "large-update", host = "example.com"))
+        val updated = TrafficInspectionStore.updateRecord("large-update") {
+            it.copy(responseBody = "x".repeat(100_000), state = TrafficCaptureState.DECODED)
+        }!!
+        assertTrue(updated.isTruncated)
+        assertEquals(TrafficCaptureState.TRUNCATED, updated.state)
+        assertTrue(updated.responseBody!!.toByteArray().size <= TrafficInspectionStore.MAX_BODY_BYTES)
+        assertEquals(updated, TrafficInspectionStore.get("large-update"))
+    }
+
+    @Test
+    fun truncationPreservesUnicodeAndIsIdempotent() {
+        for (character in listOf("€", "😀", "a")) {
+            val (body, truncated) = TrafficInspectionStore.truncateBody(character.repeat(70_000))
+            assertTrue(truncated)
+            assertTrue(body!!.toByteArray().size <= TrafficInspectionStore.MAX_BODY_BYTES)
+            assertEquals(body, String(body.toByteArray(), Charsets.UTF_8))
+            assertEquals(body to false, TrafficInspectionStore.truncateBody(body))
+        }
+    }
+
+    @Test
+    fun redactionPreservesLiteralReplacementCharactersInKeys() {
+        val body = """{"token${'$'}1":"secret","auth\\key":"private"}"""
+        val redacted = TrafficInspectionStore.redacted(TrafficRecord(host = "example.com", responseBody = body))
+        assertEquals("""{"token${'$'}1":"[REDACTED]","auth\\key":"[REDACTED]"}""", redacted.responseBody)
+    }
+
+    @Test
+    fun searchShortCircuitsAfterCaseInsensitiveUrlMatch() {
+        val unreadableHeaders = object : AbstractMap<String, String>() {
+            override val entries: Set<Map.Entry<String, String>>
+                get() = error("Headers must not be scanned when URL already matches")
+        }
+        val record = TrafficRecord(host = "example.com", url = "https://example.com/Found", requestHeaders = unreadableHeaders)
+        assertEquals(listOf(record), TrafficInspectionStore.filter(TrafficFilterQuery(searchText = "FOUND"), listOf(record)))
+    }
+
+    @Test
     fun testMultiAttributeFiltering() {
         val r1 = TrafficRecord(
             host = "auth.service.com",

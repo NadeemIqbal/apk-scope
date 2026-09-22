@@ -1815,7 +1815,10 @@ class DefaultSandboxSessionCoordinator(
             }
 
             else -> {
-                var advanced = safeTransition(next, report.state) ?: next
+                var advanced = SandboxSessionReportMerger.advanceThroughOperationalStates(
+                    next,
+                    report.state
+                ) ?: next
                 if (report.state == SandboxSessionState.INSTALLED) {
                     val readiness =
                         SandboxEnvironmentPreflight.computeLaunchReadiness(context, advanced)

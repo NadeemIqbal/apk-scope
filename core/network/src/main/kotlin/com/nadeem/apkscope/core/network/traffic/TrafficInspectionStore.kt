@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Collections
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 /**
@@ -66,18 +67,21 @@ object TrafficInspectionStore {
     private val _recordsFlow = MutableStateFlow<List<TrafficRecord>>(emptyList())
     val recordsFlow: StateFlow<List<TrafficRecord>> = _recordsFlow.asStateFlow()
 
-    fun record(raw: TrafficRecord): TrafficRecord {
+    private fun bounded(raw: TrafficRecord): TrafficRecord {
         val (requestBody, reqTruncated) = truncateBody(raw.requestBody)
         val (responseBody, respTruncated) = truncateBody(raw.responseBody)
         val isTruncated = raw.isTruncated || reqTruncated || respTruncated
 
-        val stored = raw.copy(
+        return raw.copy(
             requestBody = requestBody,
             responseBody = responseBody,
             isTruncated = isTruncated,
             state = if (isTruncated && raw.state == TrafficCaptureState.DECODED) TrafficCaptureState.TRUNCATED else raw.state
         )
+    }
 
+    fun record(raw: TrafficRecord): TrafficRecord {
+        val stored = bounded(raw)
         synchronized(records) {
             val existingIndex = records.indexOfFirst { it.id == stored.id }
             if (existingIndex >= 0) {
@@ -98,7 +102,7 @@ object TrafficInspectionStore {
             val index = records.indexOfFirst { it.id == id }
             if (index < 0) return null
             val existing = records[index]
-            val updated = transform(existing)
+            val updated = bounded(transform(existing))
             records[index] = updated
             _recordsFlow.value = ArrayList(records)
             return updated
@@ -148,13 +152,13 @@ object TrafficInspectionStore {
     fun filter(query: TrafficFilterQuery, sourceList: List<TrafficRecord> = all()): List<TrafficRecord> {
         if (query.isEmpty()) return sourceList
 
-        val searchLower = query.searchText?.trim()?.lowercase()?.ifEmpty { null }
-        val hostQuery = query.host?.trim()?.lowercase()?.ifEmpty { null }
-        val methodQuery = query.method?.trim()?.uppercase()?.ifEmpty { null }
+        val search = query.searchText?.trim()?.ifEmpty { null }
+        val hostQuery = query.host?.trim()?.ifEmpty { null }
+        val methodQuery = query.method?.trim()?.ifEmpty { null }
 
         return sourceList.filter { record ->
             // Host filter
-            if (hostQuery != null && !record.host.lowercase().contains(hostQuery)) {
+            if (hostQuery != null && !record.host.contains(hostQuery, ignoreCase = true)) {
                 return@filter false
             }
 
@@ -164,7 +168,7 @@ object TrafficInspectionStore {
             }
 
             // Method filter
-            if (methodQuery != null && record.method.uppercase() != methodQuery) {
+            if (methodQuery != null && !record.method.equals(methodQuery, ignoreCase = true)) {
                 return@filter false
             }
 
@@ -199,24 +203,21 @@ object TrafficInspectionStore {
             }
 
             // Free text search
-            if (searchLower != null) {
-                val inUrl = record.url.lowercase().contains(searchLower)
-                val inHost = record.host.lowercase().contains(searchLower)
-                val inReqHeaders = record.requestHeaders.any { (k, v) ->
-                    k.lowercase().contains(searchLower) || v.lowercase().contains(searchLower)
-                }
-                val inRespHeaders = record.responseHeaders.any { (k, v) ->
-                    k.lowercase().contains(searchLower) || v.lowercase().contains(searchLower)
-                }
-                val inReqBody = record.requestBody?.lowercase()?.contains(searchLower) == true
-                val inRespBody = record.responseBody?.lowercase()?.contains(searchLower) == true
-                val inWs = record.webSocketSession?.messages?.any { msg ->
-                    msg.payloadPreview?.lowercase()?.contains(searchLower) == true
-                } == true
-
-                if (!inUrl && !inHost && !inReqHeaders && !inRespHeaders && !inReqBody && !inRespBody && !inWs) {
-                    return@filter false
-                }
+            if (search != null) {
+                // Stop at the first match and avoid allocating lowercase copies of bodies.
+                return@filter record.url.contains(search, ignoreCase = true) ||
+                    record.host.contains(search, ignoreCase = true) ||
+                    record.requestHeaders.any { (k, v) ->
+                        k.contains(search, ignoreCase = true) || v.contains(search, ignoreCase = true)
+                    } ||
+                    record.responseHeaders.any { (k, v) ->
+                        k.contains(search, ignoreCase = true) || v.contains(search, ignoreCase = true)
+                    } ||
+                    record.requestBody?.contains(search, ignoreCase = true) == true ||
+                    record.responseBody?.contains(search, ignoreCase = true) == true ||
+                    record.webSocketSession?.messages?.any {
+                        it.payloadPreview?.contains(search, ignoreCase = true) == true
+                    } == true
             }
 
             true
@@ -244,13 +245,30 @@ object TrafficInspectionStore {
 
     fun truncateBody(body: String?): Pair<String?, Boolean> {
         if (body == null) return null to false
-        val bytes = body.toByteArray(Charsets.UTF_8)
-        return if (bytes.size > MAX_BODY_BYTES) {
-            val truncatedText = String(bytes, 0, MAX_BODY_BYTES, Charsets.UTF_8) + "\n\n[TRUNCATED: Exceeded 64 KiB preview limit]"
-            truncatedText to true
-        } else {
-            body to false
+        if (utf8PrefixEnd(body, MAX_BODY_BYTES) == body.length) return body to false
+        val marker = "\n\n[TRUNCATED: Exceeded 64 KiB preview limit]"
+        val end = utf8PrefixEnd(body, MAX_BODY_BYTES - marker.length)
+        return (body.substring(0, end) + marker) to true
+    }
+
+    /** Scan only the retained prefix; never encode an entire unbounded body to truncate it. */
+    private fun utf8PrefixEnd(text: String, byteLimit: Int): Int {
+        var index = 0
+        var bytes = 0
+        while (index < text.length) {
+            val c = text[index]
+            val pair = c.isHighSurrogate() && index + 1 < text.length && text[index + 1].isLowSurrogate()
+            val width = when {
+                pair -> 4
+                c.code < 0x80 || c.isSurrogate() -> 1 // UTF-8 encoder replaces lone surrogates with '?'
+                c.code < 0x800 -> 2
+                else -> 3
+            }
+            if (width > byteLimit - bytes) break
+            bytes += width
+            index += if (pair) 2 else 1
         }
+        return index
     }
 
     fun redactSecrets(text: String): String {
@@ -258,7 +276,7 @@ object TrafficInspectionStore {
         val sb = StringBuffer()
         while (matcher.find()) {
             val key = matcher.group(1)
-            matcher.appendReplacement(sb, "\"$key\":\"[REDACTED]\"")
+            matcher.appendReplacement(sb, Matcher.quoteReplacement("\"$key\":\"[REDACTED]\""))
         }
         matcher.appendTail(sb)
         return sb.toString()

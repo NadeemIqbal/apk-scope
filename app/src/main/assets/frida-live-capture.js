@@ -270,44 +270,134 @@
             return text.length > MAX_COMMAND_RESULT ? text.substring(0, MAX_COMMAND_RESULT) + "…[truncated]" : text;
         }
 
+        function toJsonSafe(value, depth) {
+            if (value === null || value === undefined) return value;
+            if (depth > 5) return String(value);
+
+            var type = typeof value;
+            if (type === "string" || type === "boolean" || type === "number") return value;
+            if (type === "bigint") return String(value);
+            if (type === "function") return "[Function]";
+
+            try {
+                if (Array.isArray(value)) {
+                    var array = [];
+                    var arrayLimit = Math.min(value.length, 2000);
+                    for (var i = 0; i < arrayLimit; i++) {
+                        array.push(toJsonSafe(value[i], depth + 1));
+                    }
+                    if (value.length > arrayLimit) array.push("…[" + (value.length - arrayLimit) + " more items]");
+                    return array;
+                }
+
+                var object = {};
+                var keys = Object.keys(value);
+                var keyLimit = Math.min(keys.length, 200);
+                for (var j = 0; j < keyLimit; j++) {
+                    var key = keys[j];
+                    try {
+                        object[key] = toJsonSafe(value[key], depth + 1);
+                    } catch (propertyError) {
+                        object[key] = "[Unavailable: " + String(propertyError) + "]";
+                    }
+                }
+                if (keys.length > keyLimit) object["…"] = "[" + (keys.length - keyLimit) + " more properties]";
+                return object;
+            } catch (objectError) {
+                return String(value);
+            }
+        }
+
         function safeResult(value) {
             if (value === undefined) return "undefined";
             if (value === null) return "null";
             if (typeof value === "string") return truncateResult(value);
             try {
-                return truncateResult(JSON.stringify(value));
+                return truncateResult(JSON.stringify(toJsonSafe(value, 0)));
             } catch (e) {
                 return truncateResult(value);
             }
         }
 
         function sendCommandResult(id, ok, result, error) {
-            sendLine(JSON.stringify({
-                type: "command_result",
-                version: 2,
-                id: String(id || ""),
-                pkg: packageName,
-                ok: !!ok,
-                result: ok ? safeResult(result) : null,
-                error: ok ? null : truncateResult(error || "command failed"),
-                ts: Date.now()
-            }));
+            try {
+                nativeLog("Sending command result id=" + String(id || "") + " ok=" + !!ok);
+                sendLine(JSON.stringify({
+                    type: "command_result",
+                    version: 2,
+                    id: String(id || ""),
+                    pkg: packageName,
+                    ok: !!ok,
+                    result: ok ? safeResult(result) : null,
+                    error: ok ? null : truncateResult(error || "command failed"),
+                    ts: Date.now()
+                }));
+            } catch (sendError) {
+                nativeLog("Command result serialization failed: " + sendError);
+            }
+        }
+
+        function finishCommandEvaluation(id, value) {
+            // A command may deliberately return a Promise (for example, when it wraps a
+            // Java.perform callback). Resolve it before serializing the result so the channel
+            // always produces one terminal response for the submitted command.
+            if (value && typeof value.then === "function") {
+                value.then(function(resolved) {
+                    sendCommandResult(id, true, resolved, null);
+                }, function(error) {
+                    sendCommandResult(id, false, null, error && error.stack ? error.stack : error);
+                });
+                return;
+            }
+            sendCommandResult(id, true, value, null);
+        }
+
+        // Compile the scope wrapper once. Each invocation still has fresh parameters and
+        // locals; user commands cannot retain bindings in the wrapper between evaluations.
+        var targetEvaluator = new Function(
+            "packageName", "Process", "Java", "Module", "Memory",
+            "NativeFunction", "Interceptor", "source", "return eval(source);"
+        );
+
+        function evaluateInTargetScope(source) {
+            // Gadget evaluates callbacks in a separate global scope on some Android builds.
+            // That means a normal eval(source) cannot see this script's closure variables even
+            // though it is called from the target process. Execute the submitted source inside
+            // an explicit function scope instead, passing the target identity and Frida APIs as
+            // parameters. This preserves the familiar `packageName`, `Process`, and `Java`
+            // names used by the built-in commands while keeping evaluation inside this process.
+            var javaApi = typeof Java !== "undefined" ? Java : undefined;
+            return targetEvaluator(
+                packageName,
+                Process,
+                javaApi,
+                typeof Module !== "undefined" ? Module : undefined,
+                typeof Memory !== "undefined" ? Memory : undefined,
+                typeof NativeFunction !== "undefined" ? NativeFunction : undefined,
+                typeof Interceptor !== "undefined" ? Interceptor : undefined,
+                source
+            );
         }
 
         function evaluateCommand(source, id) {
+            nativeLog("Evaluating command id=" + String(id || "") + " sourceChars=" + source.length);
             try {
-                var result;
-                // Evaluate inside this already-attached target process. The fallback keeps the
-                // channel usable with older Gadget builds that do not expose Script.evaluate.
-                if (typeof Script !== "undefined" && typeof Script.evaluate === "function") {
-                    result = Script.evaluate("apk-scope-command-" + String(id || Date.now()), source);
-                } else {
-                    result = eval(source);
-                }
-                sendCommandResult(id, true, result, null);
+                var value = evaluateInTargetScope(source);
+                nativeLog("Command evaluation completed id=" + String(id || "") + " type=" + typeof value);
+                finishCommandEvaluation(id, value);
             } catch (e) {
+                nativeLog("Command evaluation failed id=" + String(id || "") + ": " + e);
                 sendCommandResult(id, false, null, e && e.stack ? e.stack : e);
             }
+        }
+
+        function scheduleCommandEvaluation(source, id) {
+            var schedule = typeof setImmediate === "function"
+                ? setImmediate
+                : function(callback) { return setTimeout(callback, 0); };
+            schedule(function() {
+                evaluateCommand(source, id);
+            });
         }
 
         function handleCommandLine(line) {
@@ -342,7 +432,7 @@
                     sendCommandResult(command.id, false, null, "script exceeds the maximum size");
                     return;
                 }
-                evaluateCommand(command.source, command.id);
+                scheduleCommandEvaluation(command.source, command.id);
                 return;
             }
 

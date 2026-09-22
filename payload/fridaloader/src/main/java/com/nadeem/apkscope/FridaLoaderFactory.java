@@ -54,11 +54,94 @@ public class FridaLoaderFactory extends AppComponentFactory {
         if (isGadgetLoaded) return;
         try {
             provisionChannelToken(targetApplication);
+            startKeepAliveService(targetApplication);
             System.loadLibrary("gadget");
             Log.i(TAG, "Frida Gadget loaded successfully via AppComponentFactory!");
             isGadgetLoaded = true;
         } catch (Throwable t) {
             Log.e(TAG, "Failed to load Frida Gadget: " + t.getMessage(), t);
+        }
+    }
+
+    /**
+     * Android may freeze the injected target as soon as APK Scope's Work-profile console becomes
+     * the foreground activity. Keep the target process in the foreground-service importance tier
+     * so command evaluation continues while the user reads the console. The service is declared
+     * in the repacked target manifest and is started only by this target's own loader; it cannot
+     * select, attach to, or control another package.
+     */
+    private void startKeepAliveService(Application application) {
+        if (application == null) return;
+        try {
+            Intent intent = new Intent(application, KeepAliveService.class);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                application.startForegroundService(intent);
+            } else {
+                application.startService(intent);
+            }
+            Log.i(TAG, "Frida target keep-alive service requested");
+        } catch (Throwable t) {
+            // Gadget must still load on targets that reject foreground services. The monitor's
+            // authenticated channel remains usable; this is only the process-liveness safeguard.
+            Log.w(TAG, "Could not start Frida target keep-alive service: " + t.getMessage());
+        }
+    }
+
+    /** Foreground service injected into and owned by the target APK process. */
+    public static final class KeepAliveService extends Service {
+        private static final String CHANNEL_ID = "apk_scope_frida_target";
+        private static final int NOTIFICATION_ID = 0x4150;
+        @Override public void onCreate() {
+            super.onCreate();
+            try {
+                android.app.NotificationManager manager =
+                        (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    manager.createNotificationChannel(new android.app.NotificationChannel(
+                            CHANNEL_ID,
+                            "APK Scope Frida inspection",
+                            android.app.NotificationManager.IMPORTANCE_LOW
+                    ));
+                }
+                android.app.Notification notification;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    notification = new android.app.Notification.Builder(this, CHANNEL_ID)
+                            .setSmallIcon(android.R.drawable.stat_sys_warning)
+                            .setContentTitle("APK Scope inspection active")
+                            .setContentText("The sandbox target is ready for Frida commands")
+                            .setOngoing(true)
+                            .setCategory(android.app.Notification.CATEGORY_SERVICE)
+                            .build();
+                } else {
+                    notification = new android.app.Notification.Builder(this)
+                            .setSmallIcon(android.R.drawable.stat_sys_warning)
+                            .setContentTitle("APK Scope inspection active")
+                            .setContentText("The sandbox target is ready for Frida commands")
+                            .setOngoing(true)
+                            .build();
+                }
+                // The service manifest declares specialUse. Pass the matching runtime bit
+                // explicitly: this Android image's two-argument overload resolves to a
+                // different legacy type (0x400), which ActivityManager rejects against the
+                // manifest's special-use attribute (0x40000000).
+                startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                );
+                Log.i(TAG, "Frida target keep-alive service is foreground");
+            } catch (Throwable t) {
+                Log.e(TAG, "Frida target keep-alive service could not enter foreground", t);
+                stopSelf();
+            }
+        }
+
+        @Override public int onStartCommand(Intent intent, int flags, int startId) {
+            return START_STICKY;
+        }
+
+        @Override public android.os.IBinder onBind(Intent intent) {
+            return null;
         }
     }
 

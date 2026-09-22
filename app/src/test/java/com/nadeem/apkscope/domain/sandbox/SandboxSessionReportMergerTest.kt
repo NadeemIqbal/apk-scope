@@ -109,6 +109,37 @@ class SandboxSessionReportMergerTest {
   assertEquals(SandboxSessionState.INSTALLED, next?.state)
  }
 
+ @Test fun installedReportWalksPastMissedPreparationCallbacks() {
+  val next = SandboxSessionReportMerger.advanceThroughOperationalStates(
+   session(SandboxSessionState.PREPARING),
+   SandboxSessionState.INSTALLED,
+  )
+  assertEquals(SandboxSessionState.INSTALLED, next?.state)
+ }
+
+ @Test fun readyReportWalksFromPreparingThroughInstallation() {
+  val next = SandboxSessionReportMerger.advanceThroughOperationalStates(
+   session(SandboxSessionState.PREPARING),
+   SandboxSessionState.READY,
+  )
+  assertEquals(SandboxSessionState.READY, next?.state)
+ }
+
+ @Test fun operationalRecoveryDoesNotInferTerminalOrCleanupStates() {
+  assertNull(
+   SandboxSessionReportMerger.advanceThroughOperationalStates(
+    session(SandboxSessionState.PREPARING),
+    SandboxSessionState.FAILED,
+   )
+  )
+  assertNull(
+   SandboxSessionReportMerger.advanceThroughOperationalStates(
+    session(SandboxSessionState.PREPARING),
+    SandboxSessionState.CLEANUP_REQUIRED,
+   )
+  )
+ }
+
  /**
   * Regression test for the "APK too large for the cross-profile handoff" bug (confirmed on-device: a
   * real 131 MiB APK exceeding the handoff's old 128 MiB limit): before the fix, the copy failure was

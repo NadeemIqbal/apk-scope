@@ -88,7 +88,7 @@ object BinaryXmlParser {
     }
 
     fun parseManifestFull(inputStream: InputStream): ManifestParseResult {
-        val bytes = inputStream.readBytes()
+        val bytes = BinaryResourceReader.read(inputStream, BinaryResourceReader.MAX_XML_BYTES)
         if (bytes.size < 8) {
             return ManifestParseResult(emptyList(), ManifestConfig(), "")
         }
@@ -160,11 +160,11 @@ object BinaryXmlParser {
             if (buffer.remaining() < 8) break
             val chunkType = buffer.int
             val chunkSize = buffer.int
-            if (chunkSize < 8 || chunkStart + chunkSize > bytes.size) break
+            require(chunkSize >= 8 && chunkSize <= bytes.size - chunkStart) { "Invalid manifest chunk size" }
 
             when (chunkType) {
                 CHUNK_STRING_POOL -> {
-                    stringPool = parseStringPool(buffer, chunkStart, chunkSize)
+                    stringPool = parseStringPool(buffer, chunkStart)
                 }
 
                 CHUNK_START_NAMESPACE -> {
@@ -454,63 +454,6 @@ object BinaryXmlParser {
         )
     }
 
-    private fun parseStringPool(buffer: ByteBuffer, start: Int, size: Int): List<String> {
-        val stringCount = buffer.int
-        val styleCount = buffer.int
-        val flags = buffer.int
-        val stringsStartOffset = buffer.int
-        val stylesStartOffset = buffer.int
-
-        val isUtf8 = (flags and (1 shl 8)) != 0
-
-        val stringOffsets = IntArray(stringCount)
-        for (i in 0 until stringCount) {
-            stringOffsets[i] = buffer.int
-        }
-
-        val strings = ArrayList<String>(stringCount)
-        val baseDataOffset = start + stringsStartOffset
-
-        for (i in 0 until stringCount) {
-            val offset = baseDataOffset + stringOffsets[i]
-            if (offset >= buffer.capacity()) {
-                strings.add("")
-                continue
-            }
-            buffer.position(offset)
-
-            if (isUtf8) {
-                var charLen = buffer.get().toInt() and 0xFF
-                if ((charLen and 0x80) != 0) {
-                    charLen = ((charLen and 0x7F) shl 8) or (buffer.get().toInt() and 0xFF)
-                }
-                var byteLen = buffer.get().toInt() and 0xFF
-                if ((byteLen and 0x80) != 0) {
-                    byteLen = ((byteLen and 0x7F) shl 8) or (buffer.get().toInt() and 0xFF)
-                }
-                if (buffer.remaining() < byteLen) {
-                    strings.add("")
-                    continue
-                }
-                val strBytes = ByteArray(byteLen)
-                buffer.get(strBytes)
-                strings.add(String(strBytes, Charsets.UTF_8))
-            } else {
-                var charLen = buffer.short.toInt() and 0xFFFF
-                if ((charLen and 0x8000) != 0) {
-                    charLen = ((charLen and 0x7FFF) shl 16) or (buffer.short.toInt() and 0xFFFF)
-                }
-                val byteLen = charLen * 2
-                if (buffer.remaining() < byteLen) {
-                    strings.add("")
-                    continue
-                }
-                val strBytes = ByteArray(byteLen)
-                buffer.get(strBytes)
-                strings.add(String(strBytes, Charsets.UTF_16LE))
-            }
-        }
-
-        return strings
-    }
+    private fun parseStringPool(buffer: ByteBuffer, start: Int): List<String> =
+        BinaryResourceReader.stringPool(buffer, start)
 }

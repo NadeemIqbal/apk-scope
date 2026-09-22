@@ -3,6 +3,7 @@ package com.nadeem.apkscope.domain
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import com.nadeem.apkscope.core.common.BoundedCopy
 import com.nadeem.apkscope.core.common.MAX_APK_TRANSFER_BYTES
 import com.nadeem.apkscope.core.risk.DefaultRiskEngine
@@ -73,6 +74,7 @@ class ApkImportUseCase(private val context: Context) {
    }
    onProgress(Progress(1f, "Analysis complete"))
   } catch (e: Exception) {
+   Log.e("ApkImportUseCase", "APK analysis failed at ${currentStage.name} for $dest", e)
    sessionRepository.updateActive(sessionId) { it.copy(stage = SessionStage.Failed(e.message ?: e.javaClass.simpleName, currentStage)) }
   }
   sessionId

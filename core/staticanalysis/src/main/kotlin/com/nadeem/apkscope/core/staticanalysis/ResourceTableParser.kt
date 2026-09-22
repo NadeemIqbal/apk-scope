@@ -43,7 +43,6 @@ object ResourceTableParser {
  private const val RES_TABLE_PACKAGE_TYPE = 0x0200
  private const val RES_TABLE_TYPE_SPEC_TYPE = 0x0202
  private const val RES_TABLE_TYPE_TYPE = 0x0201
- private const val UTF8_FLAG = 0x100
  private const val FLAG_SPARSE = 0x01
  private const val FLAG_COMPLEX = 0x0001
  private const val TYPE_STRING = 0x03
@@ -56,11 +55,14 @@ object ResourceTableParser {
   */
  fun resolveFileResource(arscBytes: ByteArray, resourceId: Int): ResolveResult {
   if (arscBytes.size < 12) return ResolveResult.ParseFailed("resources.arsc is too small to contain a valid ResTable_header")
+  if (arscBytes.size > BinaryResourceReader.MAX_TABLE_BYTES) return ResolveResult.ParseFailed("resources.arsc exceeds the analysis size limit")
   val buffer = ByteBuffer.wrap(arscBytes).order(ByteOrder.LITTLE_ENDIAN)
   return try {
    val chunkType = buffer.getShort(0).toInt() and 0xFFFF
    if (chunkType != RES_TABLE_TYPE) return ResolveResult.ParseFailed("expected RES_TABLE_TYPE (0x0002) at offset 0, found 0x${chunkType.toString(16)}")
    val headerSize = buffer.getShort(2).toInt() and 0xFFFF
+   val tableSize = buffer.getInt(4)
+   require(headerSize >= 12 && tableSize >= headerSize && tableSize == arscBytes.size) { "Invalid resource table bounds" }
 
    val targetPackageId = (resourceId ushr 24) and 0xFF
    val targetTypeId1Based = (resourceId ushr 16) and 0xFF
@@ -71,13 +73,15 @@ object ResourceTableParser {
    var globalStrings: List<String>? = null
 
    var pos = headerSize
-   while (pos + 8 <= arscBytes.size) {
+   while (pos < tableSize) {
+    require(tableSize - pos >= 8) { "Truncated resource chunk header" }
     val cType = buffer.getShort(pos).toInt() and 0xFFFF
     val cSize = buffer.getInt(pos + 4)
-    if (cSize <= 0 || pos + cSize > arscBytes.size) break
+    require(cSize >= 8 && cSize <= tableSize - pos) { "Invalid resource chunk size" }
     when (cType) {
      RES_STRING_POOL_TYPE -> if (globalStrings == null) globalStrings = readStringPool(buffer, pos)
      RES_TABLE_PACKAGE_TYPE -> {
+      require(cSize >= 284) { "Truncated package chunk" }
       val pkgId = buffer.getInt(pos + 8) and 0xFF
       if (pkgId == targetPackageId) {
        val strings = globalStrings ?: return ResolveResult.ParseFailed("package chunk encountered before the global string pool — unexpected chunk order")
@@ -105,10 +109,13 @@ object ResourceTableParser {
   // typeStrings(268)/lastPublicType(272)/keyStrings(276)/lastPublicKey(280), each a uint32.
   val typeStringsOffsetField = buffer.getInt(pkgOff + 12 + 256)
   val keyStringsOffsetField = buffer.getInt(pkgOff + 12 + 256 + 8)
-  val typeStringsAbs = pkgOff + typeStringsOffsetField
+  require(typeStringsOffsetField in 284..(pkgSize - 28) && keyStringsOffsetField in 284..(pkgSize - 28)) {
+   "Package string pools outside package"
+  }
   val keyStringsAbs = pkgOff + keyStringsOffsetField
-  val typeStringsSize = buffer.getInt(typeStringsAbs + 4)
-  val keyStrings = readStringPool(buffer, keyStringsAbs)
+  val packageBuffer = buffer.duplicate().order(ByteOrder.LITTLE_ENDIAN).apply { limit(pkgOff + pkgSize) }
+  readStringPool(packageBuffer, pkgOff + typeStringsOffsetField)
+  readStringPool(packageBuffer, keyStringsAbs)
   val keyStringsSize = buffer.getInt(keyStringsAbs + 4)
 
   // Type/typeSpec chunks follow the two string pools; there may be several ResTable_type chunks for
@@ -117,11 +124,13 @@ object ResourceTableParser {
   val matchingTypeChunks = mutableListOf<Int>() // offsets of ResTable_type chunks for the target type id
   var pos = keyStringsAbs + keyStringsSize
   val pkgEnd = pkgOff + pkgSize
-  while (pos + 8 <= pkgEnd) {
+  while (pos < pkgEnd) {
+   require(pkgEnd - pos >= 8) { "Truncated package child header" }
    val cType = buffer.getShort(pos).toInt() and 0xFFFF
    val cSize = buffer.getInt(pos + 4)
-   if (cSize <= 0 || pos + cSize > pkgEnd) break
+   require(cSize >= 8 && cSize <= pkgEnd - pos) { "Invalid package child size" }
    if (cType == RES_TABLE_TYPE_TYPE) {
+    require(cSize >= 24) { "Truncated resource type header" }
     val typeId = buffer.get(pos + 8).toInt() and 0xFF
     if (typeId == targetTypeId1Based) matchingTypeChunks.add(pos)
    }
@@ -194,61 +203,6 @@ object ResourceTableParser {
   return ResolveResult.Resolved(path)
  }
 
- /** Minimal `ResStringPool` reader — same format `BinaryXmlParser` parses for the manifest's own string pool, reimplemented here (not shared) since this operates on a `ByteBuffer`-relative-offset model rather than that parser's list-based one, and resources.arsc string pools are read far less often, not worth forcing a shared abstraction across two independently-verified parsers. */
- private fun readStringPool(buffer: ByteBuffer, poolOff: Int): List<String> {
-  val stringCount = buffer.getInt(poolOff + 8)
-  val flags = buffer.getInt(poolOff + 16)
-  val stringsStart = buffer.getInt(poolOff + 20)
-  val isUtf8 = (flags and UTF8_FLAG) != 0
-  val result = ArrayList<String>(stringCount)
-  for (i in 0 until stringCount) {
-   val relOffset = buffer.getInt(poolOff + 28 + i * 4)
-   val stringAbs = poolOff + stringsStart + relOffset
-   result.add(
-    if (isUtf8) readUtf8PoolString(buffer, stringAbs) else readUtf16PoolString(buffer, stringAbs)
-   )
-  }
-  return result
- }
-
- private fun readUtf8PoolString(buffer: ByteBuffer, off: Int): String {
-  // UTF-8 pool strings encode both a char-length and a byte-length, each as one byte normally or two
-  // bytes if the high bit is set (a 15-bit length) — the char-length is skipped, only byte-length is
-  // needed to know how many bytes to decode.
-  var pos = off
-  val first = buffer.get(pos).toInt() and 0xFF
-  pos += if (first and 0x80 != 0) 2 else 1
-  val lenFirstByte = buffer.get(pos).toInt() and 0xFF
-  val byteLen: Int
-  if (lenFirstByte and 0x80 != 0) {
-   val lenSecondByte = buffer.get(pos + 1).toInt() and 0xFF
-   byteLen = ((lenFirstByte and 0x7F) shl 8) or lenSecondByte
-   pos += 2
-  } else {
-   byteLen = lenFirstByte
-   pos += 1
-  }
-  val bytes = ByteArray(byteLen)
-  val dup = buffer.duplicate()
-  dup.position(pos)
-  dup.get(bytes)
-  return String(bytes, Charsets.UTF_8)
- }
-
- private fun readUtf16PoolString(buffer: ByteBuffer, off: Int): String {
-  var pos = off
-  val firstUnit = buffer.getShort(pos).toInt() and 0xFFFF
-  val charLen: Int
-  if (firstUnit and 0x8000 != 0) {
-   val secondUnit = buffer.getShort(pos + 2).toInt() and 0xFFFF
-   charLen = ((firstUnit and 0x7FFF) shl 16) or secondUnit
-   pos += 4
-  } else {
-   charLen = firstUnit
-   pos += 2
-  }
-  val chars = CharArray(charLen)
-  for (i in 0 until charLen) chars[i] = buffer.getShort(pos + i * 2).toInt().toChar()
-  return String(chars)
- }
+ private fun readStringPool(buffer: ByteBuffer, poolOff: Int): List<String> =
+  BinaryResourceReader.stringPool(buffer, poolOff)
 }

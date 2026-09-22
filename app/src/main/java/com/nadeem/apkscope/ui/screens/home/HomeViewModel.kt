@@ -39,6 +39,7 @@ data class HomeUiState(
  /** Checkpoint 5.3, item 3: non-null only when Work reports a session Personal cannot account for — the fail-safe "Unfinished sandbox session detected" state. */
  val orphanSession: OrphanSessionInfo? = null,
  val resolvingOrphan: Boolean = false,
+ val orphanRecoveryError: String? = null,
  val activeSession: ActiveSessionCardState? = null,
  val launchingActiveSandboxedApp: Boolean = false,
  val storageSummary: StorageSummary? = null,
@@ -158,19 +159,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
   * first, so `_uiState.value` is read fresh — *after* the slow call completes — immediately before
   * the single, minimal `.copy()` write.
   */
-  private var hasCheckedOrphan = false
+ private var orphanCheckJob: Job? = null
+ private var lastOrphanCheckAtMs = 0L
 
   fun checkForOrphan(activity: Activity) {
-   if (hasCheckedOrphan) return
-  hasCheckedOrphan = true
-  viewModelScope.launch {
-    // Always ask Work for its live session, even when Personal has a non-terminal row.  A
-    // different or stale Personal row is exactly how an orphan can be hidden: the old guard
-    // returned early on any local active row, so the user never saw the recovery action for the
-    // Work session that was actually blocking the next prepare.
-    val orphan = coordinator.checkForOrphanWorkSession(activity)
-    _uiState.value = _uiState.value.copy(orphanSession = orphan)
-  }
+   val now = android.os.SystemClock.elapsedRealtime()
+   // The query itself briefly pauses/resumes Personal while Android forwards it to Work. A
+   // check on every ON_RESUME would therefore create an IPC loop. Cool down after each attempt;
+   // a real return from Settings or another screen still gets a fresh check.
+   if (orphanCheckJob?.isActive == true || now - lastOrphanCheckAtMs < 5_000L) return
+   lastOrphanCheckAtMs = now
+   orphanCheckJob = viewModelScope.launch {
+    // Cross-profile queries can briefly lose their result while the Work profile is waking up.
+    // A single check made the recovery card disappear permanently for this HomeViewModel. Retry
+    // a few times and allow ON_RESUME to check again after returning from Settings or Work.
+    var orphan: OrphanSessionInfo? = null
+    for (attempt in 0 until 3) {
+     orphan = coordinator.checkForOrphanWorkSession(activity)
+     if (orphan != null || attempt == 2) break
+     delay(750)
+    }
+    _uiState.value = _uiState.value.copy(orphanSession = orphan, orphanRecoveryError = null)
+   }
   }
 
  /** Item 3/5's safe recovery action — drives the orphan through the normal End Session lifecycle. */
@@ -178,8 +188,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
   val orphan = _uiState.value.orphanSession ?: return
   _uiState.value = _uiState.value.copy(resolvingOrphan = true)
   viewModelScope.launch {
-   coordinator.resolveOrphanWorkSession(activity, orphan)
-   _uiState.value = _uiState.value.copy(resolvingOrphan = false, orphanSession = null)
+   when (val result = coordinator.resolveOrphanWorkSession(activity, orphan)) {
+    is com.nadeem.apkscope.core.model.SandboxOperationResult.Success -> {
+     _uiState.value = _uiState.value.copy(resolvingOrphan = false, orphanSession = null, orphanRecoveryError = null)
+    }
+    is com.nadeem.apkscope.core.model.SandboxOperationResult.Failure -> {
+     _uiState.value = _uiState.value.copy(
+      resolvingOrphan = false,
+      orphanRecoveryError = result.error.userMessage,
+     )
+    }
+   }
   }
  }
 }

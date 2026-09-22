@@ -48,6 +48,27 @@ class StaticAnalysisFileStoreTest {
     }
 
     @Test
+    fun forgedPayloadLengthIsRejectedBeforeAllocation() {
+        val file = File(tempFolder.root, "analysis.bin")
+        StaticAnalysisFileStore.write(file, sampleData())
+        RandomAccessFile(file, "rw").use {
+            it.seek(8)
+            it.writeInt(Int.MAX_VALUE)
+        }
+        assertNull(StaticAnalysisFileStore.read(file))
+    }
+
+    @Test
+    fun trailingBytesAndIncompleteHeaderAreRejected() {
+        val file = File(tempFolder.root, "analysis.bin")
+        StaticAnalysisFileStore.write(file, sampleData())
+        file.appendBytes(byteArrayOf(0))
+        assertNull(StaticAnalysisFileStore.read(file))
+        file.writeBytes(byteArrayOf(0, 1, 2))
+        assertNull(StaticAnalysisFileStore.read(file))
+    }
+
+    @Test
     fun missingFile_isACacheMissNotAnException() {
         val file = File(tempFolder.root, "does-not-exist.bin")
         assertNull(StaticAnalysisFileStore.read(file))

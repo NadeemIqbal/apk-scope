@@ -184,6 +184,9 @@ fun SandboxPreparingScreen(
        if (isInstalledInPersonal) showAlreadyInstalledDialog = true else viewModel.retryPrepare(context as Activity)
       },
      )
+     if (state.errorCode == SandboxErrorCode.ANOTHER_SESSION_ACTIVE) {
+      SecondaryActionButton(text = "Recover previous session", onClick = onBack)
+     }
      SecondaryActionButton(text = "Back to start a new session", onClick = onBack)
     }
     if (state.showContinueToReady) {
@@ -220,6 +223,13 @@ fun SandboxPreparingScreen(
 
     if (state.blockedReason != null) {
      InfoCard(title = "Set up secure sandbox", text = state.blockedReason!!)
+     if (state.errorCode == SandboxErrorCode.ANOTHER_SESSION_ACTIVE) {
+      Text(
+       "Go back to Home and choose Stop and clean up. Then start this APK again.",
+       style = MaterialTheme.typography.bodySmall,
+       color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+     }
      state.technicalDetail?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 

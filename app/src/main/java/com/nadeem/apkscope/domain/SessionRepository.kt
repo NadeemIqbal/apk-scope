@@ -7,6 +7,7 @@ import com.nadeem.apkscope.core.staticanalysis.ApkAnalysisResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 /**
  * Checkpoint 3, item 2/3: the one repository every ViewModel goes through for session state,
@@ -38,17 +39,19 @@ class SessionRepository(private val context: Context) {
  fun getActive(id: String): AnalysisSession? = activeSessions.value[id]
 
  fun putActive(session: AnalysisSession) {
-  activeSessions.value = activeSessions.value + (session.id to session)
+  activeSessions.update { it + (session.id to session) }
  }
 
  fun updateActive(id: String, transform: (AnalysisSession) -> AnalysisSession) {
-  val current = activeSessions.value[id] ?: return
-  activeSessions.value = activeSessions.value + (id to transform(current))
+  activeSessions.update { sessions ->
+   val current = sessions[id] ?: return@update sessions
+   sessions + (id to transform(current))
+  }
  }
 
  /** Once an analysis completes, its in-memory entry has served its purpose (the durable Room row is now the source of truth) — dropped rather than left to accumulate for the rest of the process's life. */
  fun clearActive(id: String) {
-  activeSessions.value = activeSessions.value - id
+  activeSessions.update { it - id }
  }
 
  // --- Persisted completed analysis (Room-backed) ---

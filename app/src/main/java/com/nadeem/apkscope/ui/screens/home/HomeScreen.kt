@@ -124,6 +124,7 @@ fun HomeScreen(
  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
   viewModel.refreshEnvironmentUntilReady()
   viewModel.refreshStorage()
+  viewModel.checkForOrphan(context as Activity)
  }
 
  LaunchedEffect(state.navigateToSessionId) {
@@ -227,6 +228,7 @@ fun HomeScreen(
       startedAtEpochMs = orphan.startedAtEpochMs,
       networkIsolationActive = orphan.networkIsolationActive,
       resolving = state.resolvingOrphan,
+      recoveryError = state.orphanRecoveryError,
      onResolve = { viewModel.resolveOrphan(context as Activity) },
      )
     }
@@ -737,7 +739,7 @@ private fun ShortcutCard(
 
 /** Checkpoint 5.3, item 3: the fail-safe "Unfinished sandbox session detected" state — shown whenever Work reports a live sandbox session Personal cannot account for. Carries exactly the facts item 3 requires (package, start time, network isolation state) and one recovery action that drives the orphan through the normal End Session lifecycle, never a bespoke shortcut. */
 @Composable
-private fun OrphanSessionCard(packageName: String, startedAtEpochMs: Long?, networkIsolationActive: Boolean, resolving: Boolean, onResolve: () -> Unit) {
+private fun OrphanSessionCard(packageName: String, startedAtEpochMs: Long?, networkIsolationActive: Boolean, resolving: Boolean, recoveryError: String?, onResolve: () -> Unit) {
  val startedText = startedAtEpochMs?.let {
   val elapsedMs = System.currentTimeMillis() - it
   val minutes = (elapsedMs / 60_000).coerceAtLeast(0)
@@ -752,6 +754,10 @@ private fun OrphanSessionCard(packageName: String, startedAtEpochMs: Long?, netw
   )
   Spacer(Modifier.height(Spacing.base))
   PrimaryActionButton(text = if (resolving) "Resolving…" else "Stop and clean up", onClick = onResolve, loading = resolving)
+  recoveryError?.let {
+   Spacer(Modifier.height(Spacing.xs))
+   Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+  }
  }
 }
 

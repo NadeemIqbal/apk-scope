@@ -207,6 +207,41 @@ class ReVancedApkRepacker(private val context: Context) {
                                 val extractAttr = appElement.getOrCreateAndroidAttribute("extractNativeLibs", 0x010104ea)
                                 extractAttr.setValueAsBoolean(true)
 
+                                // Android can freeze a repacked target as soon as APK Scope's
+                                // command console becomes foreground. The injected loader starts
+                                // this target-owned service to keep the same process runnable;
+                                // it never accepts a package, PID, attach, or spawn selector.
+                                manifest.addUsesPermission("android.permission.FOREGROUND_SERVICE")
+                                manifest.addUsesPermission("android.permission.FOREGROUND_SERVICE_SPECIAL_USE")
+                                val keepAliveServiceName = "com.nadeem.apkscope.FridaLoaderFactory\$KeepAliveService"
+                                val keepAliveService = appElement.listElements("service")
+                                    .firstOrNull { service ->
+                                        service.searchAttributeByName("name")?.valueAsString == keepAliveServiceName
+                                    }
+                                    ?: appElement.createChildElement("service")
+                                keepAliveService.getOrCreateAndroidAttribute("name", 0x01010003)
+                                    .setValueAsString(keepAliveServiceName)
+                                keepAliveService.getOrCreateAndroidAttribute("exported", 0x01010010)
+                                    .setValueAsBoolean(false)
+                                // Android's framework attr id for foregroundServiceType is 0x01010599.
+                                // Using the exact framework id matters because PackageParser rejects a
+                                // manifest whose binary attr table cannot resolve the service type.
+                                keepAliveService.getOrCreateAndroidAttribute("foregroundServiceType", 0x01010599)
+                                    // This is an enum/bitmask attribute. Writing the label as a
+                                    // string produces an APK that aapt2 can dump but PackageParser
+                                    // rejects when the archive is analyzed or installed.
+                                    .setValueAsHex(0x40000000)
+                                val specialUseProperty = keepAliveService.listElements("property")
+                                    .firstOrNull { property ->
+                                        property.searchAttributeByName("name")?.valueAsString ==
+                                            "android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                                    }
+                                    ?: keepAliveService.createChildElement("property")
+                                specialUseProperty.getOrCreateAndroidAttribute("name", 0x01010003)
+                                    .setValueAsString("android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE")
+                                specialUseProperty.getOrCreateAndroidAttribute("value", 0x01010024)
+                                    .setValueAsString("Keep the authenticated Frida target command channel responsive")
+
                                 manifest.refresh()
                                 Log.i(TAG, "Successfully injected AppComponentFactory and extractNativeLibs into AndroidManifest.xml")
                                 manifest.bytes

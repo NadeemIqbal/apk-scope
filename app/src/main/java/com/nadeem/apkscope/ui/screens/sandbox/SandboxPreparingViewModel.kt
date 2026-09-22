@@ -13,6 +13,7 @@ import com.nadeem.apkscope.domain.SessionRepository
 import com.nadeem.apkscope.domain.sandbox.DefaultSandboxSessionCoordinator
 import com.nadeem.apkscope.ui.common.StepState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,7 +143,10 @@ class SandboxPreparingViewModel(
  val uiState: StateFlow<SandboxPreparingUiState> = _uiState.asStateFlow()
  private var prepareStarted = false
  private var statusRecoveryJob: Job? = null
+ private var recoveryLoopJob: Job? = null
  private var lastReconciliationStartedAtMs = 0L
+ private var cachedAppName: String? = null
+ private var cachedAnalysisId: String? = null
 
  init {
   viewModelScope.launch {
@@ -160,11 +164,19 @@ class SandboxPreparingViewModel(
     // update — `from(session)` rebuilds every other field from scratch and would otherwise wipe
     // them out from under an in-flight or just-finished settings round trip.
     if (session != null) {
-     val appName = withContext(Dispatchers.IO) {
-      sessionRepository.getPersisted(session.analysisId)?.appName
+     // Completed analysis metadata is immutable for this analysis id. Do not reload and
+     // deserialize the whole analysis on every install/policy update just for its label.
+     if (cachedAnalysisId != session.analysisId) {
+      val analysis = withContext(Dispatchers.IO) {
+       sessionRepository.getPersisted(session.analysisId)
+      }
+      if (analysis != null) {
+       cachedAppName = analysis.appName
+       cachedAnalysisId = session.analysisId
+      }
      }
      _uiState.value = SandboxPreparingUiState.from(session).copy(
-      appName = appName ?: _uiState.value.appName,
+      appName = cachedAppName ?: _uiState.value.appName,
       installSettingsGuidance = _uiState.value.installSettingsGuidance,
       openingInstallSettings = _uiState.value.openingInstallSettings,
       launchingSandboxedApp = _uiState.value.launchingSandboxedApp,
@@ -190,9 +202,11 @@ class SandboxPreparingViewModel(
   prepareStarted = true
   viewModelScope.launch {
    coordinator.prepare(activity, sessionId)
-   // Do not immediately launch a second hidden Work-profile Activity. The real install/session
-   // report is the primary update path; reconciliation is reserved for an explicit retry or a
-   // later resume after the Work-side install flow has settled.
+   // Work durably records the result before attempting the best-effort cross-profile push. Android
+   // may block that push when the Personal activity is temporarily not visible, so keep a bounded
+   // foreground pull running while this screen is open. This is what makes APK handoff recover
+   // without asking the user to restart the whole session.
+   startRecoveryLoop(activity)
   }
  }
 
@@ -204,6 +218,7 @@ class SandboxPreparingViewModel(
   viewModelScope.launch {
    coordinator.continueInstallation(activity, sessionId)
    startStatusRecovery(activity)
+   startRecoveryLoop(activity)
   }
  }
 
@@ -217,6 +232,7 @@ class SandboxPreparingViewModel(
     _uiState.value = _uiState.value.copy(isReinstalling = false)
    }
    startStatusRecovery(activity)
+   startRecoveryLoop(activity)
   }
  }
 
@@ -267,16 +283,45 @@ class SandboxPreparingViewModel(
  }
 
  /**
+  * Recover status when Work's push activity is rejected by Android's background-activity-start
+  * policy. WorkEvidenceStore is durable, so a short foreground pull is safe and idempotent. The
+  * loop stops as soon as the session leaves the preparation/install states.
+  */
+ private fun startRecoveryLoop(activity: Activity) {
+  if (recoveryLoopJob?.isActive == true) return
+  recoveryLoopJob = viewModelScope.launch {
+   repeat(24) { attempt ->
+    delay(if (attempt == 0) 1_000L else 2_000L)
+    if (activity.isFinishing || activity.isDestroyed) return@launch
+    val current = coordinator.observe(sessionId).first() ?: return@launch
+    when (current.state) {
+     SandboxSessionState.CREATED,
+     SandboxSessionState.PREPARING,
+     SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+     SandboxSessionState.INSTALLING,
+     SandboxSessionState.INSTALLED -> Unit
+     else -> return@launch
+    }
+    // Polling and ON_RESUME share one in-flight job and cooldown. Await that job before
+    // scheduling another poll, rather than opening competing Work query activities.
+    requestReconciliation(activity)?.join()
+   }
+  }
+ }
+
+ /**
   * A Work-profile query briefly resumes this Activity when it returns. Never start another query
   * from that immediate resume, or the query Activity and this screen form a visible loop. A
   * single-flight request plus a short cooldown still recovers lost reports when the user returns
   * to this screen, while normal install callbacks remain the primary update path.
   */
- private fun requestReconciliation(activity: Activity) {
+ private fun requestReconciliation(activity: Activity): Job? {
+  if (activity.isFinishing || activity.isDestroyed) return null
+  statusRecoveryJob?.takeIf { it.isActive }?.let { return it }
   val now = android.os.SystemClock.elapsedRealtime()
-  if (statusRecoveryJob?.isActive == true || now - lastReconciliationStartedAtMs < 3_000L) return
+  if (now - lastReconciliationStartedAtMs < 3_000L) return null
   lastReconciliationStartedAtMs = now
-  statusRecoveryJob = viewModelScope.launch { reconcileInstallation(activity) }
+  return viewModelScope.launch { reconcileInstallation(activity) }.also { statusRecoveryJob = it }
  }
 
  private suspend fun reconcileInstallation(activity: Activity) {

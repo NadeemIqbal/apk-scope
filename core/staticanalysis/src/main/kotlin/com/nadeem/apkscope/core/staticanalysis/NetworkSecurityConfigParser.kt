@@ -59,7 +59,11 @@ object NetworkSecurityConfigParser {
 
   val arscEntry = zip.getEntry("resources.arsc")
    ?: return ParseResult.Unavailable("APK has no resources.arsc — cannot resolve resource id 0x${resourceId.toString(16)}")
-  val arscBytes = zip.getInputStream(arscEntry).use { it.readBytes() }
+  val arscBytes = try {
+   zip.getInputStream(arscEntry).use { BinaryResourceReader.read(it, BinaryResourceReader.MAX_TABLE_BYTES) }
+  } catch (e: Exception) {
+   return ParseResult.Unavailable("Could not read resources.arsc within the 32 MiB limit: ${e.message}")
+  }
 
   val resolved = ResourceTableParser.resolveFileResource(arscBytes, resourceId)
   val path = when (resolved) {
@@ -71,11 +75,16 @@ object NetworkSecurityConfigParser {
 
   val xmlEntry = zip.getEntry(path)
    ?: return ParseResult.Unavailable("resolved path \"$path\" does not exist in this APK's zip entries")
-  val xmlBytes = zip.getInputStream(xmlEntry).use { it.readBytes() }
+  val xmlBytes = try {
+   zip.getInputStream(xmlEntry).use { BinaryResourceReader.read(it, BinaryResourceReader.MAX_XML_BYTES) }
+  } catch (e: Exception) {
+   return ParseResult.Unavailable("Could not read network-security-config within the 8 MiB limit: ${e.message}")
+  }
   return parseXmlBytes(xmlBytes)
  }
 
  fun parseXmlBytes(bytes: ByteArray): ParseResult {
+  if (bytes.size > BinaryResourceReader.MAX_XML_BYTES) return ParseResult.Unavailable("XML exceeds 8 MiB limit")
   val events = try {
    readAxmlEvents(bytes)
   } catch (e: Exception) {
@@ -212,7 +221,7 @@ object NetworkSecurityConfigParser {
  private const val CHUNK_TEXT = 0x00100104
 
  private fun readAxmlEvents(bytes: ByteArray): List<XmlEvent> {
-  if (bytes.size < 8) return emptyList()
+  require(bytes.size >= 8) { "Truncated binary XML header" }
   val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
   val fileType = buffer.int
   if (fileType != CHUNK_AXML_FILE) throw IllegalArgumentException("not a binary XML file (unexpected magic)")
@@ -225,10 +234,10 @@ object NetworkSecurityConfigParser {
 
   while (buffer.hasRemaining()) {
    val chunkStart = buffer.position()
-   if (buffer.remaining() < 8) break
+   require(buffer.remaining() >= 8) { "Truncated XML chunk header" }
    val chunkType = buffer.int
    val chunkSize = buffer.int
-   if (chunkSize < 8 || chunkStart + chunkSize > bytes.size) break
+   require(chunkSize >= 8 && chunkSize <= bytes.size - chunkStart) { "Invalid XML chunk size" }
 
    when (chunkType) {
     CHUNK_STRING_POOL -> stringPool = parseAxmlStringPool(buffer, chunkStart)
@@ -283,56 +292,6 @@ object NetworkSecurityConfigParser {
   return events
  }
 
- /** Same ResStringPool format [ResourceTableParser.readStringPool] reads, at the offsets [BinaryXmlParser.parseStringPool] already established for a `CHUNK_STRING_POOL`-wrapped pool (a chunk header's own layout, not resources.arsc's raw one — the two differ in header size, hence not literally shared code). */
- private fun parseAxmlStringPool(buffer: ByteBuffer, chunkStart: Int): List<String> {
-  val stringCount = buffer.getInt(chunkStart + 8)
-  val flags = buffer.getInt(chunkStart + 16)
-  val stringsStart = buffer.getInt(chunkStart + 20)
-  val isUtf8 = (flags and 0x100) != 0
-  val result = ArrayList<String>(stringCount)
-  for (i in 0 until stringCount) {
-   val relOffset = buffer.getInt(chunkStart + 28 + i * 4)
-   val stringAbs = chunkStart + stringsStart + relOffset
-   result.add(if (isUtf8) readUtf8String(buffer, stringAbs) else readUtf16String(buffer, stringAbs))
-  }
-  return result
- }
-
- private fun readUtf8String(buffer: ByteBuffer, off: Int): String {
-  var pos = off
-  val first = buffer.get(pos).toInt() and 0xFF
-  pos += if (first and 0x80 != 0) 2 else 1
-  val lenFirstByte = buffer.get(pos).toInt() and 0xFF
-  val byteLen: Int
-  if (lenFirstByte and 0x80 != 0) {
-   val lenSecondByte = buffer.get(pos + 1).toInt() and 0xFF
-   byteLen = ((lenFirstByte and 0x7F) shl 8) or lenSecondByte
-   pos += 2
-  } else {
-   byteLen = lenFirstByte
-   pos += 1
-  }
-  val bytes = ByteArray(byteLen)
-  val dup = buffer.duplicate()
-  dup.position(pos)
-  dup.get(bytes)
-  return String(bytes, Charsets.UTF_8)
- }
-
- private fun readUtf16String(buffer: ByteBuffer, off: Int): String {
-  var pos = off
-  val firstUnit = buffer.getShort(pos).toInt() and 0xFFFF
-  val charLen: Int
-  if (firstUnit and 0x8000 != 0) {
-   val secondUnit = buffer.getShort(pos + 2).toInt() and 0xFFFF
-   charLen = ((firstUnit and 0x7FFF) shl 16) or secondUnit
-   pos += 4
-  } else {
-   charLen = firstUnit
-   pos += 2
-  }
-  val chars = CharArray(charLen)
-  for (i in 0 until charLen) chars[i] = buffer.getShort(pos + i * 2).toInt().toChar()
-  return String(chars)
- }
+ private fun parseAxmlStringPool(buffer: ByteBuffer, chunkStart: Int): List<String> =
+  BinaryResourceReader.stringPool(buffer, chunkStart)
 }

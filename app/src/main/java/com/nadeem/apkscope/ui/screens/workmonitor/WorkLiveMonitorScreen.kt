@@ -81,6 +81,7 @@ fun WorkLiveMonitorScreen(
  onOpenHttpsInspection: () -> Unit = {},
  onOpenSandboxApp: () -> Unit = {},
  onOpenFridaConsole: () -> Unit = {},
+ onOpenStorageInspector: () -> Unit = {},
  modifier: Modifier = Modifier
 ) {
  val context = LocalContext.current
@@ -126,7 +127,13 @@ fun WorkLiveMonitorScreen(
       // Let the user open the editor while the receiver is still connecting so the quick
       // commands, formatter, and validation feedback are discoverable. The Run button inside
       // the console remains disabled until both verification and target authentication succeed.
-      enabled = fridaStatus.isListening,
+     enabled = fridaStatus.isListening,
+     )
+     SecondaryActionButton(
+      text = "Open Storage Inspector",
+      icon = Icons.Filled.Info,
+      onClick = onOpenStorageInspector,
+      enabled = fridaStatus.commandReady,
      )
      InfoCard(
       title = "Frida traffic",

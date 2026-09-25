@@ -44,7 +44,7 @@ import androidx.room.TypeConverters
   FinalReportEntity::class, FinalReportFindingEntity::class,
   SecurityAuditEntity::class, SecurityAuditFindingEntity::class,
  ],
- version = 10,
+ version = 11,
  exportSchema = true,
 )
 @TypeConverters(StringListConverters::class)

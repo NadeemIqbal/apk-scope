@@ -1,3 +1,5 @@
+import Java from 'frida-java-bridge';
+
 // APK Scope: Live HTTPS/WSS Traffic Monitor via BoringSSL
 // Hooks plaintext I/O, bypasses SSL pinning, streams to ServerSocket on 127.0.0.1:9999
 // Protocol: JSON-lines over TCP to 127.0.0.1:9999

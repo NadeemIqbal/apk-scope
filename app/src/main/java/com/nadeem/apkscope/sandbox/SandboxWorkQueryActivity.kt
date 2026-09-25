@@ -378,63 +378,12 @@ class SandboxWorkQueryActivity : Activity() {
   val store = WorkEvidenceStore(this)
   var report = store.getReport(sessionId)
   val packageName = store.getPackageName(sessionId)
-  // Migration for reports written before enforcement facts were merged by policy: the install
-  // result callback used to replace the earlier VPN record with only the three sensor results.
-  // Read the Work profile's live DPM state and persist a positive VPN readback so an existing
-  // session can recover without being recreated. A missing/negative readback is intentionally not
-  // promoted to ENFORCED; launch still fails closed unless the tunnel is verified separately.
+  // Export is observational. A disappearing PackageInstaller session can mean success, failure,
+  // cancellation, or replacement; only its result callback establishes the outcome. In particular
+  // this query must never tear down the VPN while a callback or retry is in flight.
   val liveVpn = report?.let { readEnforcedVpnPolicy() }
-  if (report != null && liveVpn != null && report.enforcements.none { it.policy == liveVpn.policy && it == liveVpn }) {
-   store.recordFact(
-    sessionId,
-    packageName.orEmpty(),
-    SandboxStatusReport(sessionId, report.state, enforcements = listOf(liveVpn)),
-   )
-   report = store.getReport(sessionId) ?: report.copy(enforcements = report.enforcements + liveVpn)
-  }
-  if (report?.state in setOf(
-    com.nadeem.apkscope.core.model.SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
-    com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLING,
-   ) && !packageName.isNullOrEmpty()) {
-   val present = try { packageManager.getPackageInfo(packageName, 0); true }
-    catch (_: android.content.pm.PackageManager.NameNotFoundException) { false }
-   val sessions = packageManager.packageInstaller.mySessions
-   val active = sessions.any { it.sessionId == report?.installSessionId }
-   PackageInstallerDiagnostics.log("reconcile session=$sessionId state=${report?.state} packagePresent=$present mySessions=${sessions.map { it.sessionId }}")
-   if (present) {
-    @Suppress("DEPRECATION")
-    val installedVersionCode = try {
-     val info = packageManager.getPackageInfo(packageName, 0)
-     if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
-    } catch (_: PackageManager.NameNotFoundException) {
-     null
-    }
-    // A successful package-presence read is the authoritative fallback when the transient
-    // INSTALLING report or final PackageInstaller callback was lost.
-    store.recordFact(
-     sessionId,
-     packageName,
-     SandboxStatusReport(
-      sessionId,
-      com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLED,
-      installSessionId = report?.installSessionId,
-      installedVersionCode = installedVersionCode,
-     ),
-    )
-    report = store.getReport(sessionId)
-   } else if (com.nadeem.apkscope.core.model.InstallLifecycle.interrupted(report!!.state, present, active)) {
-    // Only authoritative absence in this Work user permits interruption recovery.
-    val patch = SandboxStatusReport(sessionId, com.nadeem.apkscope.core.model.SandboxSessionState.FAILED,
-     error = com.nadeem.apkscope.core.model.SandboxError(com.nadeem.apkscope.core.model.SandboxErrorCode.INSTALL_USER_CANCELLED,
-      "Installation was interrupted. Start a new sandbox session to retry.",
-      "Package absent and PackageInstaller session no longer exists", com.nadeem.apkscope.core.model.Recoverability.RETRYABLE))
-    // Checkpoint 5.3: this writes the FAILED fact directly via the store, bypassing both
-    // SandboxWorkerService.report() and SandboxInstallResultReceiver.report() — the same orphaned-
-    // VPN root cause applies here too, so the teardown must be repeated at this third call site.
-    WorkSessionTeardown.tearDownIfEarlyTermination(this, sessionId, com.nadeem.apkscope.core.model.SandboxSessionState.FAILED)
-    store.recordFact(sessionId, packageName, patch)
-    report = store.getReport(sessionId)
-   }
+  if (report != null && liveVpn != null) {
+   report = report.copy(enforcements = report.enforcements.filterNot { it.policy == liveVpn.policy } + liveVpn)
   }
   return JSONObject().apply {
    put("sessionId", sessionId)

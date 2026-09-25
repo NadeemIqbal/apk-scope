@@ -22,6 +22,13 @@ import java.io.BufferedReader
  */
 class PocLoaderApplication : Application() {
 
+    override fun onCreate() {
+        super.onCreate()
+        // Gives the Storage Inspector real, varied data to scan (shared prefs, files, images, a
+        // SQLite database) instead of an empty sandbox. Idempotent -- see SampleStorageSeeder.
+        SampleStorageSeeder.seedIfNeeded(this)
+    }
+
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(base)
 

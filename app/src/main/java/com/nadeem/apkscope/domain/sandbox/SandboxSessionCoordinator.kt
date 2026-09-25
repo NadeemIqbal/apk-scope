@@ -58,6 +58,22 @@ interface SandboxSessionCoordinator {
     suspend fun cancel(sessionId: String): SandboxOperationResult
     suspend fun reconcile(sessionId: String): SandboxOperationResult
 
+    /**
+     * Root-cause fix, confirmed on-device: [prepare] no-ops for any session already past `CREATED`,
+     * and [reconcile] has no recovery branch for `PREPARING` (it has no `Activity` to pull Work's
+     * live evidence with) — so a session still showing `PREPARING` when its screen is freshly
+     * (re)opened can only mean the coroutine that actually drove it (a *previous* screen instance's
+     * now-cancelled scope) died before Work ever reported `WAITING_FOR_INSTALL_CONFIRMATION`, and
+     * nothing else was ever going to re-drive it. Left unhandled, this is an eternal, error-free
+     * spinner recoverable only if the user happened to guess to tap "Check installation status"
+     * themselves. Callers first attempt a real [importEvidence]+[reconcile] pull — Work may have
+     * genuinely progressed and the report simply never arrived; only if the session is *still*
+     * `PREPARING` afterward does this transition it to `FAILED` with a clear, retryable error, so
+     * "Retry" (which creates a fresh session) becomes reachable instead of a permanent dead end. A
+     * no-op (returns the session unchanged as [SandboxOperationResult.Success]) for any other state.
+     */
+    suspend fun failAbandonedPreparing(sessionId: String): SandboxOperationResult
+
     /** Checkpoint 4.1 §6/7/8: the pull/reconciliation half of the transport decision — a foreground-initiated round trip to `SandboxWorkQueryActivity` that imports whatever the Work-local evidence store durably knows for [sessionId], regardless of whether any earlier push for those same facts ever arrived. Safe/idempotent to call repeatedly (re-importing the same facts is a no-op merge). */
     suspend fun importEvidence(activity: Activity, sessionId: String): SandboxOperationResult
 
@@ -294,7 +310,7 @@ class DefaultSandboxSessionCoordinator(
             val error = SandboxError(
                 SandboxErrorCode.ANOTHER_SESSION_ACTIVE,
                 "Another sandbox session is already active. Resolve it before starting a new one.",
-                "work-active-session blocks prepare for session=$sessionId",
+                "work-active-session blocks prepare for session=$sessionId blockedBy=${snapshot.sessionId}",
                 Recoverability.REQUIRES_USER_ACTION
             )
             val failed = session.transitionTo(SandboxSessionState.FAILED).copy(error = error)
@@ -421,8 +437,20 @@ class DefaultSandboxSessionCoordinator(
             SandboxErrorCode.INSTALL_USER_CANCELLED,
             SandboxErrorCode.PACKAGE_MISMATCH,
         )
-        if (session.state !in retryableInstallStates && session.error?.code !in retryableErrorCodes) {
+        if (session.state !in retryableInstallStates &&
+            !(session.state == SandboxSessionState.FAILED && session.error?.code in retryableErrorCodes)) {
             return SandboxOperationResult.Success(session)
+        }
+
+        var retryStarted = false
+        val retrySession = repository.update(sessionId) { latest ->
+            if (latest != session) return@update latest
+            retryStarted = true
+            com.nadeem.apkscope.sandbox.InstallRetryMarker.mark(context, sessionId, latest.installSessionId)
+            latest.retryInstallation()
+        } ?: return notFound(sessionId)
+        if (!retryStarted) {
+            return SandboxOperationResult.Success(retrySession)
         }
 
         return try {
@@ -441,10 +469,10 @@ class DefaultSandboxSessionCoordinator(
                 sessionId,
                 SANDBOX_FILE_PROVIDER_AUTHORITY,
             )
-            SandboxOperationResult.Success(session)
+            SandboxOperationResult.Success(retrySession)
         } catch (e: Exception) {
             failClosed(
-                session,
+                retrySession,
                 SandboxErrorCode.HANDOFF_FAILED,
                 "Could not restart installation.",
                 e.toString(),
@@ -615,8 +643,8 @@ class DefaultSandboxSessionCoordinator(
         // reported after Work established isolation, and older Work-profile APKs did not yet
         // run the early-failure teardown hook.  The Preparing screen's End Session action must
         // therefore remain a real cleanup action for terminal Personal rows.  Query Work first
-        // and only send the close request when the live session is attributed to this exact row;
-        // never tear down a different, legitimately active session.
+        // and only send the close request when the live session is safe to tear down; never a
+        // different, legitimately RUNNING session the user has not asked to end.
         if (session.state in terminalStates) {
             val snapshot = try {
                 kotlinx.coroutines.withTimeoutOrNull(WORK_SESSION_QUERY_TIMEOUT_MS) {
@@ -636,18 +664,55 @@ class DefaultSandboxSessionCoordinator(
                     ),
                 )
             }
-            if (snapshot.active && snapshot.sessionId == sessionId) {
-                return endOrphanWithoutPersonalRow(
+            val blockingSessionId = snapshot.sessionId
+            if (!snapshot.active || blockingSessionId == null) {
+                return SandboxOperationResult.Success(session)
+            }
+            // Root-cause fix, confirmed on-device: the live Work session is not always attributed
+            // to this exact terminal row — a `prepare()` that failed with ANOTHER_SESSION_ACTIVE
+            // leaves an *older*, different session holding Work's VPN. The old code only ever
+            // cleaned up a same-id match and silently reported success for every other case,
+            // which meant this exact screen's own "End Session" button could never actually clear
+            // the conflict it exists to resolve — every subsequent attempt hit the identical wall.
+            // This is an explicit, user-confirmed action (gated by the End Session confirmation
+            // dialog), so it is safe to resolve any blocker except one Personal can positively
+            // confirm is a *different*, still-legitimately-running session — that one is never
+            // torn down as a side effect of ending this unrelated row.
+            if (blockingSessionId != sessionId) {
+                val blockingPersonal = repository.get(blockingSessionId)
+                val outcome = com.nadeem.apkscope.core.model.SessionReconciliation.reconcile(
+                    personalSessionId = blockingPersonal?.id,
+                    personalState = blockingPersonal?.state,
+                    workActive = true,
+                    workActiveSessionId = blockingSessionId,
+                )
+                if (outcome == com.nadeem.apkscope.core.model.SessionReconciliation.Outcome.RECOVER_RUNNING) {
+                    return SandboxOperationResult.Failure(
+                        session,
+                        SandboxError(
+                            SandboxErrorCode.ANOTHER_SESSION_ACTIVE,
+                            "A different sandbox session is still running. End that session first, then retry.",
+                            "end: session=$sessionId cannot clear unrelated live session=$blockingSessionId (outcome=$outcome)",
+                            Recoverability.REQUIRES_USER_ACTION,
+                        ),
+                    )
+                }
+            }
+            val fallbackPackageName = if (blockingSessionId == sessionId) session.packageName else null
+            return when (
+                val teardown = endOrphanWithoutPersonalRow(
                     activity,
                     OrphanSessionInfo(
-                        sessionId = sessionId,
-                        packageName = snapshot.packageName ?: session.packageName,
+                        sessionId = blockingSessionId,
+                        packageName = snapshot.packageName ?: fallbackPackageName,
                         startedAtEpochMs = snapshot.startedAtEpochMs,
                         networkIsolationActive = true,
                     ),
                 )
+            ) {
+                is SandboxOperationResult.Success -> SandboxOperationResult.Success(session)
+                is SandboxOperationResult.Failure -> SandboxOperationResult.Failure(session, teardown.error)
             }
-            return SandboxOperationResult.Success(session)
         }
 
         if (session.state !in setOf(
@@ -969,6 +1034,20 @@ class DefaultSandboxSessionCoordinator(
         return SandboxOperationResult.Success(next)
     }
 
+    override suspend fun failAbandonedPreparing(sessionId: String): SandboxOperationResult {
+        val session = repository.get(sessionId) ?: return notFound(sessionId)
+        if (session.state != SandboxSessionState.PREPARING) return SandboxOperationResult.Success(session)
+        val error = SandboxError(
+            SandboxErrorCode.HANDOFF_FAILED,
+            "Preparing this sandbox did not finish. Please retry.",
+            "abandoned-preparing: session=$sessionId still PREPARING after an explicit reconciliation pull found no further Work evidence",
+            Recoverability.RETRYABLE,
+        )
+        val failed = session.transitionTo(SandboxSessionState.FAILED).copy(error = error)
+        repository.save(failed)
+        return SandboxOperationResult.Failure(failed, error)
+    }
+
     /**
      * Checkpoint 4.1 §6/7/8: the pull half of the transport decision. Always launched from a
      * foreground Activity (never from a background context — the whole point), and always safe to
@@ -981,12 +1060,9 @@ class DefaultSandboxSessionCoordinator(
         sessionId: String
     ): SandboxOperationResult {
         val session = repository.get(sessionId) ?: return notFound(sessionId)
-        val next = try {
-            applyImportedReport(session, pullEvidenceFacts(activity, session))
-        } catch (_: Exception) {
-            session
-        }
-        if (next != session) repository.save(next)
+        val report = try { pullEvidenceFacts(activity, session) } catch (_: Exception) { null }
+        val next = repository.update(sessionId) { latest -> applyImportedReport(latest, report) }
+            ?: return notFound(sessionId)
         return SandboxOperationResult.Success(next)
     }
 
@@ -1797,6 +1873,8 @@ class DefaultSandboxSessionCoordinator(
         report: SandboxStatusReport?
     ): SandboxSession {
         if (report == null) return session
+        if (com.nadeem.apkscope.sandbox.InstallRetryMarker.isSuperseded(context, session.id, report)) return session
+        if (SandboxSessionReportMerger.isStaleInstallReport(session, report)) return session
         var next = SandboxSessionReportMerger.mergeFacts(session, report)
         next = when {
             report.error != null -> safeTransition(

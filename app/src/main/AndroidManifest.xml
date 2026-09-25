@@ -42,8 +42,8 @@
   <activity android:name=".sandbox.SandboxWorkerActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay">
 	   <intent-filter><action android:name="com.nadeem.apkscope.action.SANDBOX_IMPORT_APK"/><action android:name="com.nadeem.apkscope.action.PATCHED_APK_INSTALL"/><action android:name="com.nadeem.apkscope.action.CONTINUE_INSTALL"/><action android:name="com.nadeem.apkscope.action.REINSTALL"/><action android:name="com.nadeem.apkscope.action.END_SESSION"/><action android:name="com.nadeem.apkscope.action.ACK_RUNTIME_ARTIFACT"/><action android:name="com.nadeem.apkscope.action.ACK_ANDROID_EVIDENCE"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
   </activity>
-  <activity android:name=".sandbox.SandboxReportActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay">
-   <intent-filter><action android:name="com.nadeem.apkscope.action.SANDBOX_READY"/><action android:name="com.nadeem.apkscope.action.SANDBOX_ERROR"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
+  <activity android:name=".sandbox.SandboxReportActivity" android:exported="true" android:theme="@style/TransparentQueryActivity">
+   <intent-filter><action android:name="com.nadeem.apkscope.action.SANDBOX_READY"/><action android:name="com.nadeem.apkscope.action.SANDBOX_ERROR"/><action android:name="com.nadeem.apkscope.action.STORAGE_EXPORT"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="application/octet-stream"/></intent-filter>
   </activity>
   <!-- Only ever targeted via an explicit-component PendingIntent (PackageInstaller session commit / uninstall request) — no intent-filter needed for that delivery path. -->
   <receiver android:name=".sandbox.SandboxInstallResultReceiver" android:exported="false"/>

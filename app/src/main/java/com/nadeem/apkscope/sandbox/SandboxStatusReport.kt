@@ -23,6 +23,7 @@ data class SandboxStatusReport(
  val sessionId: String,
  val state: SandboxSessionState,
  val installSessionId: Int? = null,
+ val installAttemptId: Long? = null,
  val installedVersionCode: Long? = null,
  val enforcements: List<PolicyEnforcementResult> = emptyList(),
  val error: SandboxError? = null,
@@ -35,6 +36,7 @@ data class SandboxStatusReport(
   put("sessionId", sessionId)
   put("state", state.name)
   installSessionId?.let { put("installSessionId", it) }
+  installAttemptId?.let { put("installAttemptId", it) }
   installedVersionCode?.let { put("installedVersionCode", it) }
   put("enforcements", JSONArray().apply {
    enforcements.forEach { e ->
@@ -90,6 +92,7 @@ data class SandboxStatusReport(
     sessionId = json.getString("sessionId"),
     state = SandboxSessionState.valueOf(json.getString("state")),
     installSessionId = if (json.has("installSessionId")) json.getInt("installSessionId") else null,
+    installAttemptId = if (json.has("installAttemptId")) json.getLong("installAttemptId") else null,
     installedVersionCode = if (json.has("installedVersionCode")) json.getLong("installedVersionCode") else null,
     enforcements = enforcements,
     error = error,

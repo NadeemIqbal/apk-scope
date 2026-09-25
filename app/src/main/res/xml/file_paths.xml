@@ -6,4 +6,5 @@
  <files-path name="reports" path="reports/"/>
  <!-- Checkpoint 4.1: SandboxWorkQueryActivity's small, bounded query-result artifacts (VPN-verify / evidence-export answers), granted back to the calling task via the ActivityResult it produces. -->
  <files-path name="work_query_export" path="work_query_export/"/>
+ <cache-path name="storage_exports" path="storage_exports/"/>
 </paths>

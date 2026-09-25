@@ -106,12 +106,12 @@ class SandboxDatabaseMigrationTest {
 
   // Reopen through the real Room-generated DAO (not raw SQL) to prove the new tables' generated
   // code, not merely their raw SQL shape, works against a migrated (not freshly created) database.
-  // Must register every migration up to SandboxDatabase's current declared version (10), not just
+  // Must register every migration up to SandboxDatabase's current declared version, not just
   // MIGRATION_8_9 — the on-disk file is v9 after the line above, and Room needs a full path to
   // whatever version the class currently declares, same as any real app-level database open.
   val context = InstrumentationRegistry.getInstrumentation().targetContext
   val db = Room.databaseBuilder(context, SandboxDatabase::class.java, TEST_DB)
-   .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
+   .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
    .allowMainThreadQueries()
    .build()
   kotlinx.coroutines.runBlocking {
@@ -173,7 +173,7 @@ class SandboxDatabaseMigrationTest {
 
   val context = InstrumentationRegistry.getInstrumentation().targetContext
   val db = Room.databaseBuilder(context, SandboxDatabase::class.java, TEST_DB)
-   .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
+   .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
    .allowMainThreadQueries()
    .build()
   val freshSessionId = "post-migration-session"
@@ -192,6 +192,25 @@ class SandboxDatabaseMigrationTest {
    assertEquals(true, row?.session?.staticSecurityFieldsKnown)
   }
   db.close()
+ }
+
+ @Test
+ fun migrate10To11_preservesInstallStateAndAddsUnknownGeneration() {
+  helper.createDatabase(TEST_DB, 10).apply {
+   execSQL("INSERT INTO sandbox_sessions (sessionId, analysisId, packageName, state, " +
+    "policyDenyCamera, policyDenyMicrophone, policyDenyLocation, policyAlwaysOnVpnLockdown, " +
+    "policyDisposableSession, createdAtEpochMs, installSessionId) VALUES " +
+    "('install-retry', 'analysis', 'com.example.fixture', 'INSTALLING', 1, 1, 1, 1, 1, 123, 42)")
+   close()
+  }
+  helper.runMigrationsAndValidate(TEST_DB, 11, true, MIGRATION_10_11).use { db ->
+   db.query("SELECT state, installSessionId, installAttemptId FROM sandbox_sessions WHERE sessionId='install-retry'").use { c ->
+    assertTrue(c.moveToFirst())
+    assertEquals("INSTALLING", c.getString(0))
+    assertEquals(42, c.getInt(1))
+    assertTrue(c.isNull(2))
+   }
+  }
  }
 
  companion object { private const val TEST_DB = "migration-test.db" }

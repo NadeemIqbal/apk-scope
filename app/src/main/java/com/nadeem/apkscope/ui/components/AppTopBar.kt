@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,6 +89,7 @@ fun AppTopBar(
  eyebrow: String? = null,
  onBack: (() -> Unit)? = null,
  onOverflow: (() -> Unit)? = null,
+ actions: @Composable RowScope.() -> Unit = {},
 ) {
  val profile = LocalProfileContext.current
  TopAppBar(
@@ -132,6 +134,7 @@ fun AppTopBar(
   },
   actions = {
    if (onOverflow != null) IconButton(onClick = onOverflow) { Icon(Icons.Filled.MoreVert, contentDescription = "More options") }
+   actions()
   },
   colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
  )

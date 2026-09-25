@@ -1,0 +1,4 @@
+Risk Signal Fixture startup sample
+
+This file is bundled with the fixture APK and copied to the app's private files directory on first launch.
+It contains synthetic demonstration text only.

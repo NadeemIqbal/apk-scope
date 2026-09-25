@@ -3,6 +3,8 @@ package com.nadeem.apkscope.sandbox
 import android.content.Context
 import com.nadeem.apkscope.core.database.WorkEvidenceDatabaseProvider
 import com.nadeem.apkscope.core.database.WorkSessionEvidenceEntity
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 /**
@@ -20,16 +22,28 @@ import org.json.JSONObject
  * durably persisted instead of transient, and read back on demand by
  * `SandboxWorkQueryActivity`'s `EXPORT_EVIDENCE` query.
  */
-class WorkEvidenceStore(context: Context) {
+class WorkEvidenceStore(private val context: Context) {
  private val dao = WorkEvidenceDatabaseProvider.get(context).workEvidenceDao()
 
  /** Merges [patch] onto whatever cumulative evidence already exists for [sessionId] (see [mergeReports]) and persists the result. [packageName] may be empty when not yet known (e.g. a failure before the APK archive was parsed) — the import side treats an empty stored packageName as "not yet known" rather than a hard mismatch. */
- suspend fun recordFact(sessionId: String, packageName: String, patch: SandboxStatusReport) {
-  val existing = getReport(sessionId)
-  val merged = mergeReports(existing, patch)
-  val effectivePackageName = packageName.ifEmpty { getPackageName(sessionId).orEmpty() }
-  dao.upsert(WorkSessionEvidenceEntity(sessionId, effectivePackageName, merged.toJson().toString(), System.currentTimeMillis()))
-  com.nadeem.apkscope.core.crossprofile.HandoffDiagnostics.log("work_evidence_recorded session=$sessionId package=$effectivePackageName state=${merged.state}")
+ suspend fun recordFact(sessionId: String, packageName: String, patch: SandboxStatusReport): Boolean {
+  // Receiver callbacks and foreground queries can run concurrently in the Work process. Keep the
+  // read/merge/write sequence atomic so a late reconciliation cannot race a terminal callback.
+  return writeMutex.withLock {
+   val existing = getReport(sessionId)
+   if (isStale(existing, patch) || (patch.installAttemptId != null &&
+     InstallAttemptStore.current(context, sessionId)?.let { patch.installAttemptId < it } == true)) {
+    com.nadeem.apkscope.core.crossprofile.HandoffDiagnostics.log(
+     "work_evidence_stale_ignored session=$sessionId existingAttempt=${existing?.installAttemptId} patchAttempt=${patch.installAttemptId} patchState=${patch.state}",
+    )
+    return@withLock false
+   }
+   val merged = mergeReports(existing, patch)
+   val effectivePackageName = packageName.ifEmpty { getPackageName(sessionId).orEmpty() }
+   dao.upsert(WorkSessionEvidenceEntity(sessionId, effectivePackageName, merged.toJson().toString(), System.currentTimeMillis()))
+   com.nadeem.apkscope.core.crossprofile.HandoffDiagnostics.log("work_evidence_recorded session=$sessionId package=$effectivePackageName state=${merged.state} attempt=${merged.installAttemptId}")
+   true
+  }
  }
 
  suspend fun getReport(sessionId: String): SandboxStatusReport? =
@@ -47,15 +61,19 @@ class WorkEvidenceStore(context: Context) {
    * always takes the patch's value — it is always the most recently known lifecycle stage, never
    * merged field-by-field.
    */
-  fun mergeReports(existing: SandboxStatusReport?, patch: SandboxStatusReport): SandboxStatusReport {
+ fun mergeReports(existing: SandboxStatusReport?, patch: SandboxStatusReport): SandboxStatusReport {
    if (existing == null) return patch
+   if (isStale(existing, patch)) return existing
+   val newAttempt = patch.installAttemptId != null &&
+    (existing.installAttemptId == null || patch.installAttemptId > existing.installAttemptId)
    return SandboxStatusReport(
     sessionId = patch.sessionId,
     state = patch.state,
-    installSessionId = patch.installSessionId ?: existing.installSessionId,
-    installedVersionCode = patch.installedVersionCode ?: existing.installedVersionCode,
+    installSessionId = patch.installSessionId ?: existing.installSessionId.takeUnless { newAttempt },
+    installAttemptId = patch.installAttemptId ?: existing.installAttemptId,
+    installedVersionCode = patch.installedVersionCode ?: existing.installedVersionCode.takeUnless { newAttempt },
     enforcements = mergeEnforcements(existing.enforcements, patch.enforcements),
-    error = patch.error ?: existing.error,
+    error = patch.error ?: existing.error.takeUnless { newAttempt || patch.state == com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLED },
     dataClearRequestedAtEpochMs = patch.dataClearRequestedAtEpochMs ?: existing.dataClearRequestedAtEpochMs,
     dataClearCompletedAtEpochMs = patch.dataClearCompletedAtEpochMs ?: existing.dataClearCompletedAtEpochMs,
     dataClearResult = patch.dataClearResult ?: existing.dataClearResult,
@@ -63,7 +81,21 @@ class WorkEvidenceStore(context: Context) {
    )
   }
 
-  private fun mergeEnforcements(
+  internal fun isStale(existing: SandboxStatusReport?, patch: SandboxStatusReport): Boolean {
+   if (existing == null || patch.installAttemptId == null) return false
+   if (existing.installAttemptId != null && patch.installAttemptId < existing.installAttemptId) return true
+   if (patch.installAttemptId == existing.installAttemptId &&
+    existing.state == com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLED &&
+    patch.state == com.nadeem.apkscope.core.model.SandboxSessionState.FAILED) return true
+   // A delayed nonterminal report cannot undo the terminal result of the same attempt.
+   return patch.installAttemptId == existing.installAttemptId &&
+    existing.state in setOf(com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLED,
+     com.nadeem.apkscope.core.model.SandboxSessionState.FAILED) &&
+    patch.state in setOf(com.nadeem.apkscope.core.model.SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+     com.nadeem.apkscope.core.model.SandboxSessionState.INSTALLING)
+  }
+
+ private fun mergeEnforcements(
    existing: List<com.nadeem.apkscope.core.model.PolicyEnforcementResult>,
    patch: List<com.nadeem.apkscope.core.model.PolicyEnforcementResult>,
   ): List<com.nadeem.apkscope.core.model.PolicyEnforcementResult> {
@@ -73,5 +105,6 @@ class WorkEvidenceStore(context: Context) {
    patch.forEach { merged[it.policy] = it }
    return merged.values.toList()
   }
+  private val writeMutex = Mutex()
  }
 }

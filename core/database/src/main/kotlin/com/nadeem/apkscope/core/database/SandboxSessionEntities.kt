@@ -61,6 +61,7 @@ data class SandboxSessionEntity(
  val cleanupPersonalTempApkDeleted: Boolean?,
  val cleanupUriGrantReleased: Boolean?,
  val cleanupNetworkSessionClosed: Boolean?,
+ val installAttemptId: Long? = null,
 )
 
 /** One [com.nadeem.apkscope.core.model.PolicyEnforcementResult] — real enough structure (policy/status/mechanism/message) that a child table is a better fit than a delimited string (item 1/5's "store the actual `PolicyEnforcementResult`s in the session"). */

@@ -82,4 +82,47 @@ class WorkEvidenceStoreMergeTest {
   val merged = WorkEvidenceStore.mergeReports(existing, patch)
   assertEquals(complete, merged.cleanup)
  }
+
+ @Test fun newerAttemptReplacesTheAttemptIdentity() {
+  val existing = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 10, installAttemptId = 1L)
+  val patch = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 11, installAttemptId = 2L)
+  val merged = WorkEvidenceStore.mergeReports(existing, patch)
+  assertEquals(11, merged.installSessionId)
+  assertEquals(2L, merged.installAttemptId)
+ }
+
+ @Test fun staleAttemptIsRecognizedBeforeItCanOverwriteEvidence() {
+  val existing = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 11, installAttemptId = 2L)
+  val stale = SandboxStatusReport("s1", SandboxSessionState.FAILED, installSessionId = 10, installAttemptId = 1L)
+  assertTrue(WorkEvidenceStore.isStale(existing, stale))
+ }
+
+ @Test fun nonInstallPatchKeepsTheActiveAttemptIdentity() {
+  val existing = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 11, installAttemptId = 2L)
+  val patch = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, enforcements = emptyList())
+  val merged = WorkEvidenceStore.mergeReports(existing, patch)
+  assertEquals(2L, merged.installAttemptId)
+ }
+ @Test fun retryThenSuccessDoesNotRetainPreviousInstallError() {
+  val error = com.nadeem.apkscope.core.model.SandboxError(
+   com.nadeem.apkscope.core.model.SandboxErrorCode.INSTALL_USER_CANCELLED, "cancelled", null,
+   com.nadeem.apkscope.core.model.Recoverability.RETRYABLE)
+  val failed = SandboxStatusReport("s1", SandboxSessionState.FAILED, installSessionId = 10,
+   installAttemptId = 1, installedVersionCode = 4, error = error)
+  val retry = WorkEvidenceStore.mergeReports(failed, SandboxStatusReport("s1", SandboxSessionState.INSTALLING,
+   installSessionId = 11, installAttemptId = 2))
+  org.junit.Assert.assertNull(retry.error)
+  org.junit.Assert.assertNull(retry.installedVersionCode)
+  val success = WorkEvidenceStore.mergeReports(retry, retry.copy(state = SandboxSessionState.INSTALLED, installedVersionCode = 5))
+  assertEquals(success, WorkEvidenceStore.mergeReports(success, failed))
+  assertEquals(success, WorkEvidenceStore.mergeReports(success, retry))
+  org.junit.Assert.assertNull(success.error)
+ }
+
+ @Test fun retryFailureBeforeCreatingAndroidSessionDoesNotReuseOldId() {
+  val old = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 10, installAttemptId = 1)
+  val failure = SandboxStatusReport("s1", SandboxSessionState.FAILED, installAttemptId = 2)
+  org.junit.Assert.assertNull(WorkEvidenceStore.mergeReports(old, failure).installSessionId)
+ }
+
 }

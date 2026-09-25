@@ -4,6 +4,10 @@ import android.content.Context
 import com.nadeem.apkscope.core.database.SandboxDatabaseProvider
 import com.nadeem.apkscope.core.database.SandboxSessionWithEnforcements
 import com.nadeem.apkscope.core.model.SandboxSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -22,9 +26,21 @@ import kotlinx.coroutines.flow.map
 class SandboxSessionRepository(context: Context) {
  private val dao = SandboxDatabaseProvider.get(context).sandboxSessionDao()
 
- suspend fun save(session: SandboxSession) {
-  dao.upsertSession(session.toEntity(), session.enforcementEntities())
+ suspend fun save(session: SandboxSession) = withContext(Dispatchers.IO) {
+  writeMutex.withLock { dao.upsertSession(session.toEntity(), session.enforcementEntities()) }
  }
+
+ /** Apply reports/retries to the latest row; a suspended pull cannot overwrite a newer push. */
+ suspend fun update(sessionId: String, transform: (SandboxSession) -> SandboxSession): SandboxSession? = withContext(Dispatchers.IO) {
+  writeMutex.withLock {
+  val current = get(sessionId) ?: return@withLock null
+  val next = transform(current)
+  if (next != current) dao.upsertSession(next.toEntity(), next.enforcementEntities())
+  next
+  }
+ }
+
+ companion object { private val writeMutex = Mutex() }
 
  suspend fun get(sessionId: String): SandboxSession? = dao.getSessionWithEnforcements(sessionId)?.toDomain()
 

@@ -1,0 +1,9 @@
+{
+  "name": "apk-scope-frida-agent",
+  "private": true,
+  "description": "Reproducible Frida Java bridge bundle for APK Scope's target agent",
+  "devDependencies": {
+    "frida-compile": "19.0.5",
+    "frida-java-bridge": "7.0.13"
+  }
+}

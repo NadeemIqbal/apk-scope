@@ -15,7 +15,7 @@ import org.junit.Test
 /** The wire format every work→personal status report round-trips through (checkpoint 4, item 9/16) — `org.json` is a real, functional implementation in Android's unit-test jar (unlike most `android.*` stub classes), so this runs as a plain local JVM test. */
 class SandboxStatusReportTest {
  @Test fun minimalReportRoundTrips() {
-  val report = SandboxStatusReport(sessionId = "s1", state = SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, installSessionId = 42)
+  val report = SandboxStatusReport(sessionId = "s1", state = SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, installSessionId = 42, installAttemptId = 7L)
   val restored = SandboxStatusReport.fromJson(report.toJson())
   assertEquals(report, restored)
  }

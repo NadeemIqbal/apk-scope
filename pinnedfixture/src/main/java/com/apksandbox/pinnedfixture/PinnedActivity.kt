@@ -152,6 +152,10 @@ class PinnedActivity : Activity() {
             checkGadgetStatus()
         }
 
+        button("Reseed Sample Storage Data", "#0F766E") {
+            reseedSampleStorage()
+        }
+
         setContentView(scroll)
     }
 
@@ -202,6 +206,18 @@ class PinnedActivity : Activity() {
                 log("Gadget Status: loaded=$gadgetLoaded, script=${scriptFile.exists()}, lib=$gadgetLibLoaded")
             } catch (e: Exception) {
                 log("Error checking Gadget: ${e.message}")
+            }
+        }.start()
+    }
+
+    private fun reseedSampleStorage() {
+        Thread {
+            try {
+                SampleStorageSeeder.resetMarker(this)
+                SampleStorageSeeder.seedIfNeeded(this)
+                log("✓ Sample storage reseeded (shared prefs, files, images, database)")
+            } catch (e: Exception) {
+                log("✗ Reseed failed: ${e.message}")
             }
         }.start()
     }

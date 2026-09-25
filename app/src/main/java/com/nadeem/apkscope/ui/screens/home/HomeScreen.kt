@@ -40,8 +40,6 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -72,8 +70,6 @@ import com.nadeem.apkscope.ui.components.RiskTier
 import com.nadeem.apkscope.ui.components.SectionHeader
 import com.nadeem.apkscope.ui.components.SecondaryActionButton
 import com.nadeem.apkscope.ui.theme.ApkScopeTheme
-import com.nadeem.apkscope.ui.theme.ApkScopeColors
-import com.nadeem.apkscope.ui.theme.Radii
 import com.nadeem.apkscope.ui.theme.Spacing
 
 import androidx.compose.material.icons.filled.RocketLaunch
@@ -155,9 +151,18 @@ fun HomeScreen(
     }
    }
    item {
-    SelectApkCard(
+    InspectionModeCard(
      isImporting = state.isImporting,
-     onSelect = onOpenPocRepack,
+     onStartCaInspection = {
+      launcher.launch(
+       arrayOf(
+        "application/vnd.android.package-archive",
+        "application/octet-stream",
+        "*/*",
+       ),
+      )
+     },
+     onStartFridaInspection = onOpenPocRepack,
     )
    }
    item {
@@ -182,23 +187,6 @@ fun HomeScreen(
       value = if (state.activeSession?.state == com.nadeem.apkscope.core.model.SandboxSessionState.CLEANUP_REQUIRED) "1" else "0",
       label = "pending cleanups",
       modifier = Modifier.weight(1f),
-     )
-    }
-   }
-   item {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-     Text("Spaces", style = MaterialTheme.typography.titleLarge)
-     SpaceCard(
-      title = "Personal",
-      subtitle = "APK files and reports",
-      status = "Private",
-      statusColor = MaterialTheme.colorScheme.secondary,
-     )
-     SpaceCard(
-      title = "Sandbox",
-      subtitle = "Managed profile + VPN capture",
-      status = if (state.environment.allReady) "Ready" else "Setup",
-      statusColor = if (state.environment.allReady) MaterialTheme.colorScheme.tertiary else MaterialTheme.extendedColors.warning,
      )
     }
    }
@@ -280,7 +268,7 @@ private fun SimpleHomeHeader() {
   Badge("PERSONAL WORKSPACE", MaterialTheme.colorScheme.primary)
   Text("APK Scope", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onSurface)
   Text(
-   "Select an APK, then choose how you want to inspect traffic.",
+   "Choose an inspection mode, then select an APK.",
    style = MaterialTheme.typography.bodyMedium,
    color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
@@ -419,44 +407,39 @@ private fun TelemetryMetric(label: String, value: String, subtext: String) {
 }
 
 @Composable
-private fun SelectApkCard(
+private fun InspectionModeCard(
  isImporting: Boolean,
- onSelect: () -> Unit,
+ onStartCaInspection: () -> Unit,
+ onStartFridaInspection: () -> Unit,
 ) {
- BaseCard(containerColor = MaterialTheme.colorScheme.primary) {
-  Text("READY TO INSPECT", style = MaterialTheme.typography.labelSmall, color = ApkScopeColors.PrimaryContainer)
+ BaseCard(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
   Text(
-   "Inspect an APK with Frida",
-   style = MaterialTheme.typography.headlineMedium,
-   color = MaterialTheme.colorScheme.onPrimary,
+   if (isImporting) "Importing APK…" else "Choose inspection mode",
+   style = MaterialTheme.typography.titleMedium,
   )
-  Spacer(Modifier.height(Spacing.xs))
   Text(
-   "APK Scope prepares the sandbox and opens a command console for the selected app.",
-   style = MaterialTheme.typography.bodyMedium,
-   color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+   "CA keeps the APK original. Frida instruments a copy.",
+   style = MaterialTheme.typography.bodySmall,
+   color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
-  Spacer(Modifier.height(Spacing.md))
-  Button(
-   onClick = onSelect,
+  ModeOption(
+   title = "CA inspection",
+   subtitle = "Original APK · HTTPS for apps that trust the Work Profile CA",
+   badge = "ORIGINAL",
+   icon = Icons.Filled.VpnKey,
+   color = MaterialTheme.colorScheme.primary,
+   onClick = onStartCaInspection,
    enabled = !isImporting,
-   shape = RoundedCornerShape(Radii.md),
-   colors = ButtonDefaults.buttonColors(
-    containerColor = ApkScopeColors.Lime,
-    contentColor = ApkScopeColors.OnLime,
-   ),
-   modifier = Modifier.fillMaxWidth().height(48.dp),
-  ) {
-   if (isImporting) {
-    androidx.compose.material3.CircularProgressIndicator(
-     modifier = Modifier.size(18.dp),
-     color = ApkScopeColors.OnLime,
-     strokeWidth = 2.dp,
-    )
-    Spacer(Modifier.width(Spacing.sm))
-   }
-   Text(if (isImporting) "Starting…" else "Start Frida inspection  →", fontWeight = FontWeight.Bold)
-  }
+  )
+  ModeOption(
+   title = "Frida inspection",
+   subtitle = "Instrumented copy · runtime hooks for supported apps",
+   badge = "PATCHED COPY",
+   icon = Icons.Filled.Code,
+   color = MaterialTheme.colorScheme.tertiary,
+   onClick = onStartFridaInspection,
+   enabled = !isImporting,
+  )
  }
 }
 
@@ -469,19 +452,6 @@ private fun HomeStatCard(value: String, label: String, modifier: Modifier = Modi
 }
 
 @Composable
-private fun SpaceCard(title: String, subtitle: String, status: String, statusColor: androidx.compose.ui.graphics.Color) {
- BaseCard {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-   Column(Modifier.weight(1f)) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-   }
-   Badge(status, statusColor)
-  }
- }
-}
-
-@Composable
 private fun ModeOption(
  title: String,
  subtitle: String,
@@ -489,11 +459,12 @@ private fun ModeOption(
  icon: androidx.compose.ui.graphics.vector.ImageVector,
  color: androidx.compose.ui.graphics.Color,
  onClick: () -> Unit,
+ enabled: Boolean = true,
 ) {
  Row(
   Modifier
    .fillMaxWidth()
-   .clickable(onClick = onClick)
+   .clickable(enabled = enabled, onClick = onClick)
    .background(color.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
    .padding(Spacing.md),
   horizontalArrangement = Arrangement.SpaceBetween,
@@ -799,7 +770,11 @@ private fun RecentAnalysisCard(summary: PersistedAnalysisSummary, onClick: () ->
 private fun HomeScreenPreview() {
  ApkScopeTheme {
   Column {
-   SelectApkCard(isImporting = false, onSelect = {})
+   InspectionModeCard(
+    isImporting = false,
+    onStartCaInspection = {},
+    onStartFridaInspection = {},
+   )
   }
  }
 }

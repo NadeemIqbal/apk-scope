@@ -203,7 +203,18 @@ data class SandboxSession(
  val dataClearCompletedAt: Instant? = null,
  val dataClearResult: Boolean? = null,
  val cleanupSummary: CleanupSummary? = null,
+ /** Monotonic Work install generation; survives process death and delayed cross-profile reports. */
+ val installAttemptId: Long? = null,
 ) {
+ /** Explicit user retry. Generic state transitions still cannot revive a terminal session. */
+ fun retryInstallation(): SandboxSession {
+  require(state in setOf(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLING) ||
+   (state == SandboxSessionState.FAILED && error?.code in setOf(
+    SandboxErrorCode.INSTALL_FAILED, SandboxErrorCode.INSTALL_USER_CANCELLED, SandboxErrorCode.PACKAGE_MISMATCH)))
+  return copy(state = SandboxSessionState.PREPARING, error = null, installedVersionCode = null,
+   installAttemptId = installAttemptId?.plus(1))
+ }
+
  /** The only way [state] ever changes — throws [IllegalSandboxTransitionException] rather than silently applying an illegal transition (item 1). */
  fun transitionTo(next: SandboxSessionState): SandboxSession {
   if (!SandboxStateMachine.canTransition(state, next)) throw IllegalSandboxTransitionException(state, next)

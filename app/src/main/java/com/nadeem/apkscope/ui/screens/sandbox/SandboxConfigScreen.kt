@@ -102,9 +102,8 @@ fun SandboxConfigScreen(
   state.navigateToSandboxSessionId?.let { onPrepare(it, state.navigateToStage); viewModel.onNavigationConsumed() }
  }
 
- // Frida is an action-oriented workflow. Once the APK is known, begin the sandbox setup without
- // making the user press through an internal "Configure" screen. The explicit button remains for
- // the other callers and for retry/recovery states.
+ // Once the APK is known, begin sandbox setup without making the user press through an internal
+ // "Configure" screen. The explicit button remains for other callers and recovery states.
  LaunchedEffect(autoPrepare, state.packageName) {
   if (!autoPrepare || autoPrepareRequested || state.packageName == null) return@LaunchedEffect
   autoPrepareRequested = true
@@ -127,7 +126,7 @@ fun SandboxConfigScreen(
      onClick = { onViewStaticAnalysis(sessionId) },
     )
     PrimaryActionButton(
-     text = if (state.isCreating) "Starting…" else "Start Frida inspection",
+     text = if (state.isCreating) "Starting…" else "Start sandbox session",
      onClick = {
       if (isInstalledInPersonal) {
        showAlreadyInstalledDialog = true

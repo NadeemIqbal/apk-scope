@@ -1,0 +1,6 @@
+{
+  "fixture": "risk-signal-storage-sample",
+  "seed_version": 1,
+  "profile_label": "Risk Fixture Demo",
+  "purpose": "Synthetic private-storage example for local inspection"
+}

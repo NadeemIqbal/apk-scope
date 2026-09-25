@@ -31,7 +31,7 @@ object SandboxDatabaseProvider {
 
  fun get(context: Context): SandboxDatabase = instance ?: synchronized(this) {
   instance ?: Room.databaseBuilder(context.applicationContext, SandboxDatabase::class.java, SandboxDatabase.DB_NAME)
-   .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
+   .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
    .fallbackToDestructiveMigration(dropAllTables = true)
    .build()
    .also { instance = it }

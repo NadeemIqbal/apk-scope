@@ -3,6 +3,13 @@ package com.nadeem.apkscope.core.database
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/** Preserve existing history; old install generations are unknown until Work reports them. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+ override fun migrate(db: SupportSQLiteDatabase) {
+  db.execSQL("ALTER TABLE sandbox_sessions ADD COLUMN installAttemptId INTEGER")
+ }
+}
+
 /**
  * Milestone 10 (Security Audit), correction pass: a real migration replacing the destructive
  * fallback this project's schema changes had relied on through version 8. `SandboxDatabaseProvider`

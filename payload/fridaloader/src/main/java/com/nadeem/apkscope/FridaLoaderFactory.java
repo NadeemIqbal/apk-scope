@@ -146,10 +146,8 @@ public class FridaLoaderFactory extends AppComponentFactory {
     }
 
     /**
-     * Frida Gadget's script runtime is not guaranteed to expose the ART Java bridge when Gadget
-     * is loaded from an injected AppComponentFactory. The script still needs a target-bound
-     * credential, so obtain it while we are in ordinary target Java code and hand it to the
-     * script through a private file in the target application's own data directory.
+     * Obtain a target-bound credential while running in ordinary target Java code, then hand it
+     * to the Frida script through a private file in the target application's own data directory.
      *
      * The provider authenticates the Binder caller UID. The token is never embedded in the APK,
      * passed through an Intent, or exposed through a user-selectable package/PID. The file is

@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 
 /**
@@ -83,7 +84,7 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
   CoroutineScope(Dispatchers.IO).launch {
    try {
     when (intent.action) {
-     ACTION_INSTALL_RESULT -> handleInstallResult(context, intent)
+     ACTION_INSTALL_RESULT -> InstallAttemptStore.mutex.withLock { handleInstallResult(context, intent) }
      ACTION_UNINSTALL_RESULT -> handleUninstallResult(context, intent)
     }
    } finally {
@@ -95,7 +96,10 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
  private suspend fun handleInstallResult(context: Context, intent: Intent) {
   val installSessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
   val prefs = context.getSharedPreferences(SandboxWorkerService.PREFS, Context.MODE_PRIVATE)
-  val sessionId = prefs.getString("session_$installSessionId", null)
+  val sessionId = InstallAttemptStore.sessionFor(context, installSessionId)
+   ?: prefs.getString("session_$installSessionId", null)
+  val attemptId = InstallAttemptStore.attemptFor(context, installSessionId)
+  val currentAttempt = sessionId?.let { InstallAttemptStore.current(context, it) }
   val expectedPackage = prefs.getString("package_$installSessionId", null)
   val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)
   // Checkpoint 5.2, item 3: capture every returned status/extra from the commit callback, exactly
@@ -106,16 +110,18 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
    PackageInstallerDiagnostics.log("handleInstallResult: no sessionId on file for installSessionId=$installSessionId — dropping (stale or foreign session)")
    return
   }
+  // A retry supersedes the old PackageInstaller session. Android may still deliver its callback
+  // after the new session is staged; never let that callback overwrite the active attempt.
+  if (currentAttempt != null && attemptId != currentAttempt) {
+   PackageInstallerDiagnostics.log("handleInstallResult: stale callback ignored installSessionId=$installSessionId attempt=$attemptId currentAttempt=$currentAttempt session=$sessionId")
+   InstallAttemptStore.removeBinding(context, installSessionId)
+   return
+  }
 
   if (status != PackageInstaller.STATUS_PENDING_USER_ACTION) {
    // The callback is terminal for this PackageInstaller session. Remove all per-session
    // bookkeeping so a later process restart cannot accidentally associate a stale callback with
    // the current sandbox session.
-   prefs.edit()
-    .remove("pending_$installSessionId")
-    .remove("session_$installSessionId")
-    .remove("package_$installSessionId")
-    .apply()
    context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID_INSTALL)
    PackageInstallerDiagnostics.log("final callback mySessions=${context.packageManager.packageInstaller.mySessions.map { it.sessionId }}")
   }
@@ -126,7 +132,7 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
      context.packageManager.packageInstaller.getSessionInfo(installSessionId)?.let {
       context.packageManager.packageInstaller.abandonSession(installSessionId)
      }
-     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, installSessionId = installSessionId, installAttemptId = attemptId,
       error = SandboxError(SandboxErrorCode.INSTALL_FAILED,
        "Android installation confirmation is unavailable. Enable Work Profile notifications and start a new sandbox session.",
        "confirmationIntentPresent=${confirmation != null}", Recoverability.REQUIRES_USER_ACTION)), expectedPackage)
@@ -145,7 +151,7 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
     // into a terminal PACKAGE_MISMATCH and leaving the Personal session stale.
     val installedInfo = awaitInstalledPackage(context, expectedPackage)
     if (installedInfo == null || installedInfo.packageName != expectedPackage) {
-     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, installSessionId = installSessionId, installAttemptId = attemptId,
       error = SandboxError(SandboxErrorCode.PACKAGE_MISMATCH, "The installed app does not match the app that was analyzed.", "expected=$expectedPackage actual=${installedInfo?.packageName}", Recoverability.TERMINAL)), expectedPackage)
     } else {
      val admin = android.content.ComponentName(context, com.nadeem.apkscope.spike.SandboxAdminReceiver::class.java)
@@ -159,14 +165,17 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
       enforcements += enforcer.denyRuntimePermission(SandboxPolicyType.LOCATION_RUNTIME_PERMISSION_DENIAL, expectedPackage, "android.permission.ACCESS_FINE_LOCATION")
      }
      @Suppress("DEPRECATION") val versionCode = if (android.os.Build.VERSION.SDK_INT >= 28) installedInfo.longVersionCode else installedInfo.versionCode.toLong()
-     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.INSTALLED, installedVersionCode = versionCode, enforcements = enforcements), expectedPackage)
+     report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.INSTALLED, installSessionId = installSessionId, installAttemptId = attemptId, installedVersionCode = versionCode, enforcements = enforcements), expectedPackage)
     }
    }
-   com.nadeem.apkscope.core.model.InstallLifecycle.Outcome.CANCELLED -> report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+   com.nadeem.apkscope.core.model.InstallLifecycle.Outcome.CANCELLED -> report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, installSessionId = installSessionId, installAttemptId = attemptId,
     error = SandboxError(SandboxErrorCode.INSTALL_USER_CANCELLED, "Installation was cancelled.", intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE), Recoverability.RETRYABLE)), expectedPackage)
-   else -> report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED,
+   else -> report(context, sessionId, SandboxStatusReport(sessionId, SandboxSessionState.FAILED, installSessionId = installSessionId, installAttemptId = attemptId,
     error = SandboxError(SandboxErrorCode.INSTALL_FAILED, "Installation failed.", "status=$status: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}", Recoverability.RETRYABLE)), expectedPackage)
   }
+  // Persist the terminal fact before removing the callback mapping. A process death during the
+  // write must leave enough identity for Android's redelivery to finish recording the outcome.
+  if (status != PackageInstaller.STATUS_PENDING_USER_ACTION) InstallAttemptStore.removeBinding(context, installSessionId)
  }
 
  private suspend fun awaitInstalledPackage(context: Context, packageName: String?, attempts: Int = 20): android.content.pm.PackageInfo? {
@@ -250,8 +259,8 @@ class SandboxInstallResultReceiver : BroadcastReceiver() {
   // Checkpoint 5.3 root-cause fix — see WorkSessionTeardown's doc comment: an install
   // denial/failure delivered straight to this receiver (never passing back through
   // SandboxWorkerService.report) is exactly the path that left Work's VPN orphaned.
+  if (!WorkEvidenceStore(context).recordFact(sessionId, targetPackage.orEmpty(), statusReport)) return
   WorkSessionTeardown.tearDownIfEarlyTermination(context, sessionId, statusReport.state)
-  WorkEvidenceStore(context).recordFact(sessionId, targetPackage.orEmpty(), statusReport)
   val file = File(context.filesDir, "reports/$sessionId-${System.nanoTime()}.json")
   file.parentFile?.mkdirs()
   file.writeText(statusReport.toJson().toString())

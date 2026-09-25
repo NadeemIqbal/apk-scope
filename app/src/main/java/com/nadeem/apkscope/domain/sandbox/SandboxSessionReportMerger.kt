@@ -36,7 +36,18 @@ object SandboxSessionReportMerger {
   * Never transitions state itself — the caller decides the target state (a plain status update vs.
   * an error vs. a cleanup outcome need different transition rules), via [safeTransition]. */
  fun mergeFacts(session: SandboxSession, report: SandboxStatusReport): SandboxSession {
+  // A verified current callback can repair an old inferred install failure left by earlier builds.
+  val recoverInstallation = session.state == SandboxSessionState.FAILED &&
+   report.state == SandboxSessionState.INSTALLED && report.installAttemptId != null &&
+   report.error == null && session.error?.code in setOf(
+    com.nadeem.apkscope.core.model.SandboxErrorCode.INSTALL_FAILED,
+    com.nadeem.apkscope.core.model.SandboxErrorCode.INSTALL_USER_CANCELLED,
+    com.nadeem.apkscope.core.model.SandboxErrorCode.PACKAGE_MISMATCH)
   return session.copy(
+   state = if (recoverInstallation) SandboxSessionState.PREPARING else session.state,
+   error = if (recoverInstallation || (report.installAttemptId != null && report.error == null &&
+    report.state in setOf(SandboxSessionState.INSTALLING, SandboxSessionState.INSTALLED))) null else session.error,
+   installAttemptId = report.installAttemptId ?: session.installAttemptId,
    enforcementResults = if (report.enforcements.isEmpty()) session.enforcementResults
     else mergeEnforcements(session.enforcementResults, report.enforcements),
    installSessionId = report.installSessionId ?: session.installSessionId,
@@ -45,6 +56,32 @@ object SandboxSessionReportMerger {
    dataClearCompletedAt = report.dataClearCompletedAtEpochMs?.let(Instant::ofEpochMilli) ?: session.dataClearCompletedAt,
    dataClearResult = report.dataClearResult ?: session.dataClearResult,
   )
+ }
+
+ /** Generation ordering is independent of Android session ids (which are not monotonic). */
+ fun isStaleInstallReport(session: SandboxSession, report: SandboxStatusReport): Boolean {
+  val currentAttempt = session.installAttemptId
+  val incomingAttempt = report.installAttemptId
+  if (currentAttempt != null && incomingAttempt != null) {
+   if (incomingAttempt < currentAttempt) return true
+   if (incomingAttempt > currentAttempt) return false
+   if (session.state == SandboxSessionState.FAILED && report.state in setOf(
+     SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION, SandboxSessionState.INSTALLING)) return true
+   if (session.state in setOf(SandboxSessionState.INSTALLED, SandboxSessionState.READY,
+     SandboxSessionState.LAUNCHING, SandboxSessionState.RUNNING) &&
+    report.state in setOf(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+     SandboxSessionState.INSTALLING, SandboxSessionState.FAILED)) return true
+  }
+  // Legacy producers cannot overwrite a known generation's install result. Cleanup reports are
+  // intentionally unversioned and must still be accepted.
+  if (currentAttempt != null && incomingAttempt == null &&
+   (report.installSessionId != null || report.state in setOf(SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+    SandboxSessionState.INSTALLING, SandboxSessionState.INSTALLED))) return true
+  return currentAttempt == null && incomingAttempt == null &&
+   session.installSessionId != null && report.installSessionId != null &&
+   session.installSessionId != report.installSessionId &&
+   session.state !in setOf(SandboxSessionState.PREPARING, SandboxSessionState.WAITING_FOR_INSTALL_CONFIRMATION,
+    SandboxSessionState.INSTALLING) && report.state != SandboxSessionState.INSTALLING
  }
 
  private fun mergeEnforcements(

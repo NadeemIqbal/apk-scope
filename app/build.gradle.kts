@@ -1,8 +1,14 @@
+import java.io.File
 import javax.inject.Inject
+import org.gradle.api.GradleException
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -73,6 +79,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("io.github.zakayothuku:compose-room-inspector:1.0.0")
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
@@ -135,17 +142,76 @@ val stageFridaLoaderDex = tasks.register<StageFridaLoaderAsset>("stageFridaLoade
     payload.from(fridaLoaderPayload)
 }
 
+// Frida 17+ no longer embeds the Java language bridge in Gadget. Compile the target agent with
+// frida-java-bridge so commands evaluated later by that agent can use Java.perform/Java.use.
+val fridaAgentProject = rootProject.file("tools/frida-agent")
+val installFridaAgentDependencies = tasks.register<Exec>("installFridaAgentDependencies") {
+    workingDir(fridaAgentProject)
+    commandLine("npm", "ci")
+    inputs.files(file("../tools/frida-agent/package.json"), file("../tools/frida-agent/package-lock.json"))
+    outputs.dir(fridaAgentProject.resolve("node_modules"))
+}
+val generatedFridaAgentAssets = layout.buildDirectory.dir("generated/fridaAgentAssets")
+val bundleFridaAgent = tasks.register<BundleFridaAgentTask>("bundleFridaAgent") {
+    dependsOn(installFridaAgentDependencies)
+    sourceFile.set(rootProject.file("app/src/main/assets/frida-live-capture.js"))
+    packageLock.set(fridaAgentProject.resolve("package-lock.json"))
+    compilerExecutable.set(fridaAgentProject.resolve("node_modules/.bin/frida-compile").absolutePath)
+    workingDirectory.set(fridaAgentProject.absolutePath)
+    outputDir.set(generatedFridaAgentAssets)
+}
+
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(
             stageFridaLoaderDex,
             StageFridaLoaderAsset::outputDir,
         )
+        variant.sources.assets?.addGeneratedSourceDirectory(bundleFridaAgent, BundleFridaAgentTask::outputDir)
     }
 }
 
 // Copies the resolved frida_loader.dex payload into a generated assets directory
 // that AGP wires into the variant's merged assets.
+abstract class BundleFridaAgentTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceFile: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val packageLock: RegularFileProperty
+
+    @get:Input abstract val compilerExecutable: Property<String>
+    @get:Input abstract val workingDirectory: Property<String>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun bundle() {
+        val outputDirectory = outputDir.get().asFile
+        outputDirectory.mkdirs()
+        val outputFile = outputDirectory.resolve("frida-live-capture-bundle.js")
+        val projectDirectory = File(workingDirectory.get())
+        val stagedSource = projectDirectory.resolve(".build/frida-live-capture.js")
+        stagedSource.parentFile.mkdirs()
+        sourceFile.get().asFile.copyTo(stagedSource, overwrite = true)
+        val process = ProcessBuilder(
+            compilerExecutable.get(),
+            stagedSource.absolutePath,
+            "-o",
+            outputFile.absolutePath,
+            "-B",
+            "iife",
+            "-S",
+        ).directory(File(workingDirectory.get())).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        if (process.waitFor() != 0) {
+            throw GradleException("Could not bundle the Frida target agent:\n$output")
+        }
+        if (output.isNotBlank()) logger.info(output.trim())
+    }
+}
+
 abstract class StageFridaLoaderAsset @Inject constructor(
     private val fs: FileSystemOperations,
 ) : DefaultTask() {

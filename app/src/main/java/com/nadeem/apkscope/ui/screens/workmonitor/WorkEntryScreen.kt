@@ -86,6 +86,7 @@ import kotlinx.coroutines.delay
  var packageName by remember { mutableStateOf(SandboxVpnService.activePackageName) }
  var showHttpsInspection by remember(openTrafficInspector) { mutableStateOf(openTrafficInspector) }
  var showFridaConsole by remember { mutableStateOf(false) }
+ var showStorageInspector by remember { mutableStateOf(false) }
  val fridaStatus by FridaTrafficMonitor.shared.status.collectAsState()
 
 LaunchedEffect(sessionId, packageName) {
@@ -142,7 +143,16 @@ LaunchedEffect(Unit) {
    showFridaConsole = true
   }
  }
- if (showFridaConsole) {
+ if (showStorageInspector) {
+  BackHandler { showStorageInspector = false }
+  FridaStorageInspectorScreen(
+   context = context,
+   targetPackage = packageName.orEmpty(),
+   sessionId = currentSessionId.orEmpty(),
+   onBack = { showStorageInspector = false },
+   modifier = modifier,
+  )
+ } else if (showFridaConsole) {
   BackHandler { showFridaConsole = false }
   FridaCommandConsoleScreen(
    targetPackage = packageName.orEmpty(),
@@ -169,6 +179,7 @@ LaunchedEffect(Unit) {
     },
     onOpenSandboxApp = { openSandboxedTargetApp(context, packageName.orEmpty()) },
     onOpenFridaConsole = { showFridaConsole = true },
+    onOpenStorageInspector = { showStorageInspector = true },
     modifier = modifier
    )
   } else {

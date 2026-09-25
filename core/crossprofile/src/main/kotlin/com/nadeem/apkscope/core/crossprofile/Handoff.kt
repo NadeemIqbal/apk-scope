@@ -39,6 +39,8 @@ object CrossProfileContract {
     const val ACTION_SANDBOX_READY = "com.nadeem.apkscope.action.SANDBOX_READY"
     const val ACTION_REPORT_READY = "com.nadeem.apkscope.action.REPORT_READY"
     const val ACTION_SANDBOX_ERROR = "com.nadeem.apkscope.action.SANDBOX_ERROR"
+    /** User-selected Work storage items, handed to the Personal profile for Downloads export. */
+    const val ACTION_STORAGE_EXPORT = "com.nadeem.apkscope.action.STORAGE_EXPORT"
     const val ACTION_END_SESSION = "com.nadeem.apkscope.action.END_SESSION"
     const val ACTION_CONTINUE_INSTALL = "com.nadeem.apkscope.action.CONTINUE_INSTALL"
     const val ACTION_REINSTALL = "com.nadeem.apkscope.action.REINSTALL"
@@ -79,6 +81,8 @@ object CrossProfileContract {
     const val QUERY_TYPE_DESTROY_WORK_PROFILE = "DESTROY_WORK_PROFILE"
     /** Milestone 9 (Pixel 8 acceptance, fifth pass, item 2): an opaque id minted fresh per import/query attempt, carried alongside [SESSION_ID] purely so [UrlEvidencePipelineDiagnostics] can correlate the Personal- and Work-side halves of one specific attempt after the fact — never used for any routing/authorization decision. */
     const val OPERATION_ID = "operationId"
+    /** Maximum compressed Work-to-Personal selected-storage archive (the uncompressed payload is capped at 200 MiB). */
+    const val MAX_STORAGE_EXPORT_TRANSFER_BYTES = 202L * 1024 * 1024
 }
 
 /**
@@ -108,6 +112,7 @@ object Handoff {
    CrossProfileContract.ACTION_REINSTALL to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
    CrossProfileContract.ACTION_SANDBOX_READY to DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
    CrossProfileContract.ACTION_SANDBOX_ERROR to DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
+   CrossProfileContract.ACTION_STORAGE_EXPORT to DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
    // Checkpoint 4.1: personal→work query/result round trip (see CrossProfileContract.ACTION_WORK_QUERY).
    CrossProfileContract.ACTION_WORK_QUERY to DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
    // Checkpoint 5, item 24: personal→work fire-and-forget artifact ack (see CrossProfileContract.ACTION_ACK_RUNTIME_ARTIFACT).
@@ -241,7 +246,7 @@ object Handoff {
  */
 open class ImportActivity:Activity() {
  private val workActions = setOf(CrossProfileContract.ACTION_IMPORT_APK, CrossProfileContract.ACTION_SANDBOX_IMPORT_APK, CrossProfileContract.ACTION_PATCHED_APK_INSTALL, CrossProfileContract.ACTION_END_SESSION, CrossProfileContract.ACTION_CONTINUE_INSTALL, CrossProfileContract.ACTION_REINSTALL, CrossProfileContract.ACTION_ACK_RUNTIME_ARTIFACT, CrossProfileContract.ACTION_ACK_ANDROID_EVIDENCE)
- private val personalActions = setOf(CrossProfileContract.ACTION_REPORT_READY, CrossProfileContract.ACTION_SANDBOX_READY, CrossProfileContract.ACTION_SANDBOX_ERROR)
+ private val personalActions = setOf(CrossProfileContract.ACTION_REPORT_READY, CrossProfileContract.ACTION_SANDBOX_READY, CrossProfileContract.ACTION_SANDBOX_ERROR, CrossProfileContract.ACTION_STORAGE_EXPORT)
  private val apkActions = setOf(CrossProfileContract.ACTION_IMPORT_APK, CrossProfileContract.ACTION_SANDBOX_IMPORT_APK, CrossProfileContract.ACTION_PATCHED_APK_INSTALL)
 
  override fun onCreate(s:android.os.Bundle?) {
@@ -265,9 +270,28 @@ open class ImportActivity:Activity() {
    require(uri.authority?.substringAfter('@')?.endsWith(".files") == true)
    HandoffDiagnostics.log("import_activity_uri_validated action=$action session=$session uri=$uri")
    val isApk=action in apkActions
-   val ext=if(isApk) "apk" else "json"
+   val isStorageExport = action == CrossProfileContract.ACTION_STORAGE_EXPORT
+   val ext=when { isApk -> "apk"; isStorageExport -> "zip"; else -> "json" }
    val local=File(filesDir,"imports/$session.$ext")
    HandoffDiagnostics.log("import_activity_copy_started action=$action session=$session dest=${local.absolutePath}")
+   if (isStorageExport) {
+    val validSession = requireNotNull(session)
+    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    executor.execute {
+     try {
+      Handoff.copy(this, uri, local, CrossProfileContract.MAX_STORAGE_EXPORT_TRANSFER_BYTES)
+      HandoffDiagnostics.log("import_activity_copy_completed action=$action session=$validSession bytes=${local.length()}")
+      onImportComplete(action, validSession, local)
+     } catch (e: Exception) {
+      HandoffDiagnostics.log("import_activity_failed action=$action detail=$e")
+      runOnUiThread { onImportFailed(e, validSession) }
+     } finally {
+      runOnUiThread { finish() }
+      executor.shutdown()
+     }
+    }
+    return
+   }
    Handoff.copy(this,uri,local,if(isApk) MAX_APK_TRANSFER_BYTES else 1024L*1024)
    HandoffDiagnostics.log("import_activity_copy_completed action=$action session=$session bytes=${local.length()}")
    getSharedPreferences("spike",0).edit().putString("session",session).putString("import",local.absolutePath).apply()

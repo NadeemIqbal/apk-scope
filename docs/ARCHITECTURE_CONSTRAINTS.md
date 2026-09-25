@@ -53,6 +53,8 @@ Every artifact needs a schema version, analysis/session linkage, target identity
 
 Validate the intended provider and grants as well as content. Reject mismatched sessions or targets, invalid types, oversized fields, duplicate conflicts, unsupported versions, and malformed input. Do not deserialize untrusted Java objects.
 
+Storage Inspector exports are an explicit user-selected exception to the Work Profile storage boundary: package only the checked items in a size-limited archive, transfer it through the dedicated `STORAGE_EXPORT` action with a temporary FileProvider read grant, validate the archive in the Personal profile, then publish the selected items under `Downloads/APKScopeExports/<target package>/<timestamp>`. Never expose Work Profile storage directly or write the export into the Work Profile's Downloads folder.
+
 Bound reads and allocations before parsing large content. Count encoded bytes, not characters. Truncation counts must describe what is actually known; if total omitted records cannot be determined, report that uncertainty.
 
 Apply redaction before transport and validate it at the receiving boundary. Use idempotent imports and atomic or transactional persistence. Preserve concurrent evidence updates. Surface pending, imported, truncated, rejected, and failed outcomes in durable application state.

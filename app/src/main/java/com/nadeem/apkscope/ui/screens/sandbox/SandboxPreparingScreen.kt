@@ -144,7 +144,14 @@ fun SandboxPreparingScreen(
   topBar = { AppTopBar(title = "Preparing Sandbox", onBack = onBack) },
   bottomBar = {
    StickyActionBar {
-    // Installation status is reconciled automatically on resume and by the in-flight poll.
+    // A status pull opens a Work Activity. Keep it explicit so it cannot cover Android's installer.
+    if (!state.showContinueToReady) {
+     SecondaryActionButton(
+      text = "Check installation status",
+      onClick = { viewModel.refreshInstallation(context as Activity) },
+      enabled = !state.isReinstalling && !state.isEnding,
+     )
+    }
     if (state.errorCode == SandboxErrorCode.WORK_PROFILE_MISSING && environmentRepository.isProvisioningAllowed()) {
      PrimaryActionButton(
       text = "Set Up Work Profile",
@@ -238,7 +245,7 @@ fun SandboxPreparingScreen(
     }
 
     if (state.awaitingInstallConfirmation == StepState.ACTIVE && !state.showContinueInstallation) {
-     InfoCard(title = "Confirm installation in Android", text = "Tap the installation notification in your Work Profile. If Android did not finish the install, tap Reinstall below.")
+     InfoCard(title = "Confirm installation in Android", text = "Tap the installation notification in your Work Profile and confirm the install. When you return here, tap Check installation status if this screen has not updated.")
     }
     if (state.errorCode == SandboxErrorCode.WORK_PROFILE_MISSING && environmentRepository.isProvisioningAllowed()) {
     }

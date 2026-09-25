@@ -38,7 +38,7 @@ class GadgetPayloadInjector(private val context: Context) {
 
         // 1. Frida live traffic capture script.
         val fridaScript = try {
-            context.assets.open("frida-live-capture.js").use { stream ->
+            context.assets.open("frida-live-capture-bundle.js").use { stream ->
                 stream.readBytes()
             }
         } catch (e: Exception) {

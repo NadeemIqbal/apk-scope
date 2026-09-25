@@ -174,6 +174,8 @@ adb push riskfixture/build/outputs/apk/debug/riskfixture-debug.apk \
 
 In APK Scope, choose **Choose APK**, select `APK-Scope-Risk-Fixture.apk` in the system picker, and review the static result. The fixture intentionally declares and exercises representative risky patterns, so its score is expected to be elevated. For a minimal baseline target, build and push `:fixture:assembleDebug` instead.
 
+On first launch, Risk Signal Fixture copies bundled JSON and text examples into its private files directory and seeds synthetic SharedPreferences and SQLite rows. Use **Add runtime storage sample** to append a JSONL file entry and add corresponding preference/database records; repeat the action to create more entries.
+
 ## Optional runtime inspection
 
 After static analysis, continue to **Configure Sandbox** only when a Managed Work Profile is available. The supported lifecycle uses Android's install/uninstall confirmations and includes target cleanup before evidence import.

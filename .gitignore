@@ -19,6 +19,8 @@ gen/
 out/
 build/
 **/build/
+tools/frida-agent/node_modules/
+tools/frida-agent/.build/
 
 # Gradle files
 .gradle/

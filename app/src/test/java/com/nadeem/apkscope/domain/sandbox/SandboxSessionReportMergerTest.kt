@@ -25,6 +25,47 @@ class SandboxSessionReportMergerTest {
   requestedPolicy = SandboxPolicy(), createdAt = Instant.EPOCH,
  )
 
+ @Test fun explicitRetryRejectsAllReportsFromPriorGenerationBeforeNewIdArrives() {
+  val failed = session(SandboxSessionState.FAILED).copy(installSessionId = 10, installAttemptId = 2,
+   error = SandboxError(SandboxErrorCode.INSTALL_USER_CANCELLED, "cancelled", null, Recoverability.RETRYABLE))
+  val retry = failed.retryInstallation()
+  assertEquals(SandboxSessionState.PREPARING, retry.state)
+  assertEquals(3L, retry.installAttemptId)
+  assertNull(retry.error)
+  for (state in listOf(SandboxSessionState.INSTALLING, SandboxSessionState.FAILED, SandboxSessionState.INSTALLED)) {
+   assertTrue(SandboxSessionReportMerger.isStaleInstallReport(retry,
+    SandboxStatusReport("s1", state, installSessionId = 10, installAttemptId = 2)))
+  }
+  val success = SandboxStatusReport("s1", SandboxSessionState.INSTALLED, installSessionId = 12, installAttemptId = 3)
+  assertTrue(!SandboxSessionReportMerger.isStaleInstallReport(retry, success))
+  val installed = SandboxSessionReportMerger.advanceThroughOperationalStates(
+   SandboxSessionReportMerger.mergeFacts(retry, success), success.state)!!
+  assertEquals(SandboxSessionState.INSTALLED, installed.state)
+  assertEquals(3L, installed.installAttemptId)
+  assertTrue(SandboxSessionReportMerger.isStaleInstallReport(installed, success.copy(state = SandboxSessionState.INSTALLING)))
+ }
+
+ @Test fun confirmedCurrentSuccessRepairsLegacyInferredFailure() {
+  val failed = session(SandboxSessionState.FAILED).copy(installSessionId = 10,
+   error = SandboxError(SandboxErrorCode.INSTALL_USER_CANCELLED, "inferred cancellation", null, Recoverability.RETRYABLE))
+  val report = SandboxStatusReport("s1", SandboxSessionState.INSTALLED, installSessionId = 10, installAttemptId = 1)
+  val merged = SandboxSessionReportMerger.mergeFacts(failed, report)
+  assertNull(merged.error)
+  assertEquals(SandboxSessionState.INSTALLED,
+   SandboxSessionReportMerger.advanceThroughOperationalStates(merged, report.state)?.state)
+ }
+
+ @Test(expected = IllegalArgumentException::class) fun retryCannotReviveACompletedSession() {
+  session(SandboxSessionState.COMPLETED).retryInstallation()
+ }
+
+ @Test fun delayedProgressCannotEraseCurrentCancellation() {
+  val failed = session(SandboxSessionState.FAILED).copy(installAttemptId = 2,
+   error = SandboxError(SandboxErrorCode.INSTALL_USER_CANCELLED, "cancelled", null, Recoverability.RETRYABLE))
+  assertTrue(SandboxSessionReportMerger.isStaleInstallReport(failed,
+   SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installAttemptId = 2)))
+ }
+
  @Test fun mergeFactsAppliesEveryNonNullField() {
   val report = SandboxStatusReport(
    "s1", SandboxSessionState.INSTALLED, installSessionId = 3, installedVersionCode = 9L,
@@ -43,6 +84,24 @@ class SandboxSessionReportMergerTest {
   val report = SandboxStatusReport("s1", SandboxSessionState.WAITING_FOR_UNINSTALL_CONFIRMATION) // no installedVersionCode
   val merged = SandboxSessionReportMerger.mergeFacts(original, report)
   assertEquals(42L, merged.installedVersionCode)
+ }
+
+ @Test fun terminalReportFromAnOlderInstallerSessionIsIgnored() {
+  val current = session(SandboxSessionState.READY).copy(installSessionId = 11)
+  val stale = SandboxStatusReport("s1", SandboxSessionState.FAILED, installSessionId = 10)
+  assertTrue(SandboxSessionReportMerger.isStaleInstallReport(current, stale))
+ }
+
+ @Test fun newerInstallingReportCanRecoverWhenPushWasMissed() {
+  val current = session(SandboxSessionState.INSTALLING).copy(installSessionId = 10)
+  val retry = SandboxStatusReport("s1", SandboxSessionState.INSTALLING, installSessionId = 11)
+  assertTrue(!SandboxSessionReportMerger.isStaleInstallReport(current, retry))
+ }
+
+ @Test fun terminalReportForAReplacementCanRecoverBeforeInstallingPushArrives() {
+  val current = session(SandboxSessionState.PREPARING).copy(installSessionId = 10)
+  val retry = SandboxStatusReport("s1", SandboxSessionState.INSTALLED, installSessionId = 11)
+  assertTrue(!SandboxSessionReportMerger.isStaleInstallReport(current, retry))
  }
 
  @Test fun mergeFactsPreservesEarlierPoliciesWhenPatchIsPartial() {
